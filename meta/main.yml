@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  author: spatterlight
+  role_name: radarr
+  description: An Ansible role for installing Radarr, a movie collection manager for Usenet and BitTorrent users
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+    - name: ArchLinux
+      versions:
+        - all
+    - name: EL
+      versions:
+        - "7"
+  license: GPL-3.0-or-later
+  min_ansible_version: '2.1'
