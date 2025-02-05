@@ -10,7 +10,7 @@ radarr_uid: ''
 radarr_gid: ''
 radarr_timezone: 'Etc/UTC'
 
-radarr_version: 4.0.12
+radarr_version: 5.18.4
 radarr_arch: amd64
 
 # The hostname at which radarr is served.
