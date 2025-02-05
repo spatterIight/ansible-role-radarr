@@ -1,0 +1,112 @@
+---
+
+# Project source code URL: https://github.com/Radarr/Radarr
+
+radarr_enabled: true
+
+radarr_identifier: radarr
+
+radarr_uid: ''
+radarr_gid: ''
+radarr_timezone: 'Etc/UTC'
+
+radarr_version: 4.0.12
+radarr_arch: amd64
+
+# The hostname at which radarr is served.
+radarr_hostname: ''
+
+# The path at which radarr is served.
+# This value must either be `/` or not end with a slash (e.g. `/radarr`).
+radarr_path_prefix: /
+
+radarr_base_path: "{{ radarr_identifier }}"
+radarr_data_path: "{{ radarr_base_path }}/data"
+
+radarr_container_image: "{{ radarr_container_image_registry_prefix }}linuxserver/radarr:{{ radarr_container_image_tag }}"
+radarr_container_image_tag: "{{ radarr_version }}"
+radarr_container_image_registry_prefix: lscr.io/
+radarr_container_image_force_pull: "{{ radarr_container_image.endswith(':latest') }}"
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+radarr_container_network: "{{ radarr_identifier }}"
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+radarr_container_additional_networks: "{{ (radarr_container_additional_networks_default + radarr_container_additional_networks_auto + radarr_container_additional_networks_custom) | unique }}"
+radarr_container_additional_networks_default: []
+radarr_container_additional_networks_auto: []
+radarr_container_additional_networks_custom: []
+
+# Controls how long to wait for the container to stop gracefully before killing it.
+# Because `devture_systemd_docker_base_container_stop_grace_time_seconds` may be quite short and databases are more important to stop gracefully,
+# we default to at least 30 seconds.
+radarr_container_stop_grace_time_seconds: "{{ [devture_systemd_docker_base_container_stop_grace_time_seconds, 30] | max }}"
+
+# List of systemd services that the Radarr systemd service depends on
+radarr_systemd_required_services_list: "{{ (radarr_systemd_required_services_list_default + radarr_systemd_required_services_list_auto + radarr_systemd_required_services_list_custom) | unique }}"
+radarr_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+radarr_systemd_required_services_list_auto: []
+radarr_systemd_required_services_list_custom: []
+
+# List of systemd services that the Radarr systemd service wants
+radarr_systemd_wanted_services_list: "{{ (radarr_systemd_wanted_services_list_default + radarr_systemd_wanted_services_list_auto + radarr_systemd_wanted_services_list_custom) | unique }}"
+radarr_systemd_wanted_services_list_default: []
+radarr_systemd_wanted_services_list_auto: []
+radarr_systemd_wanted_services_list_custom: []
+
+# The port Radarr is running on inside the container
+radarr_container_http_port: 8989
+
+# Controls whether the container exposes a port (tcp/8989 in the container)
+# that can be used to access Radarr from outside the container
+#
+# Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:8989"), or empty string to not expose.
+radarr_container_http_bind_port: ""
+
+# To inject your own other container labels, see `radarr_container_labels_additional_labels`.
+radarr_container_labels_traefik_enabled: true
+radarr_container_labels_traefik_docker_network: "{{ radarr_container_network }}"
+radarr_container_labels_traefik_hostname: "{{ radarr_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/radarr`).
+radarr_container_labels_traefik_path_prefix: "{{ radarr_path_prefix }}"
+radarr_container_labels_traefik_rule: "Host(`{{ radarr_container_labels_traefik_hostname }}`){% if radarr_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ radarr_container_labels_traefik_path_prefix }}`){% endif %}"
+radarr_container_labels_traefik_priority: 0
+radarr_container_labels_traefik_entrypoints: web-secure
+radarr_container_labels_traefik_tls: "{{ radarr_container_labels_traefik_entrypoints != 'web' }}"
+radarr_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# radarr_container_labels_additional_labels contains a multiline string with additional labels to add to the container label file.
+# See `../templates/labels.j2` for details.
+#
+# Example:
+# radarr_container_labels_additional_labels: |
+#   my.label=1
+#   another.label="here"
+radarr_container_labels_additional_labels: ''
+
+# radarr_container_additional_environment_variables contains a multiline string with additional environment variables to pass to the container.
+#
+# Example:
+# radarr_container_additional_environment_variables: |
+#   VAR=1
+#   ANOTHER=value
+radarr_container_additional_environment_variables: ''
+
+# A list of additional "volumes" to mount in the container.
+#
+# See the `--mount` documentation for the `docker run` command.
+#
+# Example:
+# radarr_container_additional_volumes:
+#   - type: bind
+#     src: /path/on/the/host
+#     dst: /data
+#   - type: bind
+#     src: /another-path/on/the/host
+#     dst: /read-only
+#     options: readonly
+radarr_container_additional_volumes: []
+
+# A list of extra arguments to pass to the container
+radarr_container_extra_arguments: []

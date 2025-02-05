@@ -1,0 +1,25 @@
+---
+
+- name: Install Radarr
+  tags:
+    - setup-all
+    - setup-radarr
+    - install-all
+    - install-radarr
+  block:
+    - name: Run Radarr validation tasks
+      when: radarr_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - name: Run Radarr installation tasks
+      when: radarr_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- name: Uninstall Radarr
+  tags:
+    - setup-all
+    - setup-radarr
+  block:
+    - name: Run Radarr uninstallation tasks
+      when: not radarr_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
