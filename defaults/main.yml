@@ -56,12 +56,12 @@ radarr_systemd_wanted_services_list_auto: []
 radarr_systemd_wanted_services_list_custom: []
 
 # The port Radarr is running on inside the container
-radarr_container_http_port: 8989
+radarr_container_http_port: 7878
 
-# Controls whether the container exposes a port (tcp/8989 in the container)
+# Controls whether the container exposes a port (tcp/7878 in the container)
 # that can be used to access Radarr from outside the container
 #
-# Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:8989"), or empty string to not expose.
+# Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:7878"), or empty string to not expose.
 radarr_container_http_bind_port: ""
 
 # To inject your own other container labels, see `radarr_container_labels_additional_labels`.
