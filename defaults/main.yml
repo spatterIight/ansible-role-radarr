@@ -10,7 +10,8 @@ radarr_uid: ''
 radarr_gid: ''
 radarr_timezone: 'Etc/UTC'
 
-radarr_version: 5.19.3
+# renovate: datasource=docker depName=lscr.io/linuxserver/radarr versioning=semver
+radarr_version: 5.22.4
 radarr_arch: amd64
 
 # The hostname at which radarr is served.
