@@ -1,5 +1,7 @@
 <!--
+SPDX-FileCopyrightText: 2023 Slavi Pantaleev
 SPDX-FileCopyrightText: 2025 spatterIight
+SPDX-FileCopyrightText: 2025, 2026 Suguru Hirahara
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
@@ -39,3 +41,13 @@ You can read more about these upstream requirements in the documentation:
 
 1. https://docs.linuxserver.io/misc/non-root/
 2. https://docs.linuxserver.io/misc/read-only/
+
+## Development
+
+You can optionally install a Git pre-commit hook (via [mise](https://mise.jdx.dev/) + [prek](https://prek.j178.dev/)) that runs formatting and linting checks before each commit. See [`.pre-commit-config.yaml`](./.pre-commit-config.yaml) for which hooks are to be executed.
+
+To install the hook, run the [`just`](https://github.com/casey/just) command below:
+
+```sh
+just prek-install-git-pre-commit-hook
+```
