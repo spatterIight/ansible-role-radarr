@@ -17,7 +17,7 @@
 
 - name: Fail if required Radarr settings not defined
   ansible.builtin.fail:
-    msg: >
+    msg: >-
       You need to define a required configuration setting (`{{ item }}`).
   when: "lookup('vars', item, default='') | string | length == 0"
   with_items:
@@ -27,7 +27,7 @@
 
 - name: Fail if Radarr architecture is not supported
   ansible.builtin.fail:
-    msg: >
+    msg: >-
       Your configuration specifies a CPU architecture (`{{ radarr_arch }}`) which is not currently supported.
       This Radarr role also does not support self-building yet, so it's not possible to make use of it.
   when: "radarr_arch not in ['amd64', 'arm64']"
