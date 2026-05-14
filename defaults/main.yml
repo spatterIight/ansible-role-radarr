@@ -33,7 +33,9 @@ radarr_data_path: "{{ radarr_base_path }}/data"
 
 radarr_container_image: "{{ radarr_container_image_registry_prefix }}linuxserver/radarr:{{ radarr_container_image_tag }}"
 radarr_container_image_tag: "{{ radarr_version }}"
-radarr_container_image_registry_prefix: lscr.io/
+radarr_container_image_registry_prefix: "{{ radarr_container_image_registry_prefix_upstream }}"
+radarr_container_image_registry_prefix_upstream: "{{ radarr_container_image_registry_prefix_upstream_default }}"
+radarr_container_image_registry_prefix_upstream_default: lscr.io/
 
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 radarr_container_network: "{{ radarr_identifier }}"
