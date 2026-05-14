@@ -36,9 +36,6 @@ radarr_container_image_registry_prefix: "{{ radarr_container_image_registry_pref
 radarr_container_image_registry_prefix_upstream: "{{ radarr_container_image_registry_prefix_upstream_default }}"
 radarr_container_image_registry_prefix_upstream_default: lscr.io/
 
-# The base container network. It will be auto-created by this role if it doesn't exist already.
-radarr_container_network: "{{ radarr_identifier }}"
-
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
 radarr_container_additional_networks: "{{ (radarr_container_additional_networks_default + radarr_container_additional_networks_auto + radarr_container_additional_networks_custom) | unique }}"
@@ -57,6 +54,12 @@ radarr_systemd_wanted_services_list: "{{ (radarr_systemd_wanted_services_list_de
 radarr_systemd_wanted_services_list_default: []
 radarr_systemd_wanted_services_list_auto: []
 radarr_systemd_wanted_services_list_custom: []
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+radarr_container_network: "{{ radarr_identifier }}"
+
+# Control if the container network is deleted on uninstalling.
+radarr_container_network_deletion_enabled: true
 
 # The port Radarr is running on inside the container
 radarr_container_http_port: 7878
