@@ -1,7 +1,9 @@
 ---
 galaxy_info:
   author: spatterlight
+  company: spatterlight
   role_name: radarr
+  namespace: spatterlight
   description: An Ansible role for installing Radarr, a movie collection manager for Usenet and BitTorrent users
   platforms:
     - name: Debian
