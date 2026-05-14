@@ -13,13 +13,15 @@
 radarr_enabled: true
 
 radarr_identifier: radarr
-
-radarr_uid: ""
-radarr_gid: ""
+radarr_base_path: "/{{ radarr_identifier }}"
+radarr_data_path: "{{ radarr_base_path }}/data"
 
 # renovate: datasource=docker depName=lscr.io/linuxserver/radarr versioning=semver
 radarr_version: 6.1.1
 radarr_arch: amd64
+
+radarr_uid: ""
+radarr_gid: ""
 
 # The hostname at which radarr is served.
 radarr_hostname: ""
@@ -27,9 +29,6 @@ radarr_hostname: ""
 # The path at which radarr is served.
 # This value must either be `/` or not end with a slash (e.g. `/radarr`).
 radarr_path_prefix: /
-
-radarr_base_path: "{{ radarr_identifier }}"
-radarr_data_path: "{{ radarr_base_path }}/data"
 
 radarr_container_image: "{{ radarr_container_image_registry_prefix }}linuxserver/radarr:{{ radarr_container_image_tag }}"
 radarr_container_image_tag: "{{ radarr_version }}"
