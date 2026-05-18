@@ -1,36 +1,40 @@
----
+# SPDX-FileCopyrightText: 2023, 2024 Nikita Chernyi
+# SPDX-FileCopyrightText: 2023-2025 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2024 Sergio Durigan Junior
+# SPDX-FileCopyrightText: 2025 MASH project contributors
+# SPDX-FileCopyrightText: 2025 spatterIight
+# SPDX-FileCopyrightText: 2025, 2026 Suguru Hirahara
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
+---
 # Project source code URL: https://github.com/Radarr/Radarr
 
 radarr_enabled: true
 
 radarr_identifier: radarr
-
-radarr_uid: ''
-radarr_gid: ''
-radarr_timezone: 'Etc/UTC'
+radarr_base_path: "/{{ radarr_identifier }}"
+radarr_data_path: "{{ radarr_base_path }}/data"
 
 # renovate: datasource=docker depName=lscr.io/linuxserver/radarr versioning=semver
 radarr_version: 6.1.1
 radarr_arch: amd64
 
+radarr_uid: ""
+radarr_gid: ""
+
 # The hostname at which radarr is served.
-radarr_hostname: ''
+radarr_hostname: ""
 
 # The path at which radarr is served.
 # This value must either be `/` or not end with a slash (e.g. `/radarr`).
 radarr_path_prefix: /
 
-radarr_base_path: "{{ radarr_identifier }}"
-radarr_data_path: "{{ radarr_base_path }}/data"
-
 radarr_container_image: "{{ radarr_container_image_registry_prefix }}linuxserver/radarr:{{ radarr_container_image_tag }}"
 radarr_container_image_tag: "{{ radarr_version }}"
-radarr_container_image_registry_prefix: lscr.io/
-radarr_container_image_force_pull: "{{ radarr_container_image.endswith(':latest') }}"
-
-# The base container network. It will be auto-created by this role if it doesn't exist already.
-radarr_container_network: "{{ radarr_identifier }}"
+radarr_container_image_registry_prefix: "{{ radarr_container_image_registry_prefix_upstream }}"
+radarr_container_image_registry_prefix_upstream: "{{ radarr_container_image_registry_prefix_upstream_default }}"
+radarr_container_image_registry_prefix_upstream_default: lscr.io/
 
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
@@ -38,11 +42,6 @@ radarr_container_additional_networks: "{{ (radarr_container_additional_networks_
 radarr_container_additional_networks_default: []
 radarr_container_additional_networks_auto: []
 radarr_container_additional_networks_custom: []
-
-# Controls how long to wait for the container to stop gracefully before killing it.
-# Because `devture_systemd_docker_base_container_stop_grace_time_seconds` may be quite short and databases are more important to stop gracefully,
-# we default to at least 30 seconds.
-radarr_container_stop_grace_time_seconds: "{{ [devture_systemd_docker_base_container_stop_grace_time_seconds, 30] | max }}"
 
 # List of systemd services that the Radarr systemd service depends on
 radarr_systemd_required_services_list: "{{ (radarr_systemd_required_services_list_default + radarr_systemd_required_services_list_auto + radarr_systemd_required_services_list_custom) | unique }}"
@@ -55,6 +54,12 @@ radarr_systemd_wanted_services_list: "{{ (radarr_systemd_wanted_services_list_de
 radarr_systemd_wanted_services_list_default: []
 radarr_systemd_wanted_services_list_auto: []
 radarr_systemd_wanted_services_list_custom: []
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+radarr_container_network: "{{ radarr_identifier }}"
+
+# Control if the container network is deleted on uninstalling.
+radarr_container_network_deletion_enabled: true
 
 # The port Radarr is running on inside the container
 radarr_container_http_port: 7878
@@ -75,7 +80,7 @@ radarr_container_labels_traefik_rule: "Host(`{{ radarr_container_labels_traefik_
 radarr_container_labels_traefik_priority: 0
 radarr_container_labels_traefik_entrypoints: web-secure
 radarr_container_labels_traefik_tls: "{{ radarr_container_labels_traefik_entrypoints != 'web' }}"
-radarr_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+radarr_container_labels_traefik_tls_certResolver: default # noqa var-naming
 
 # radarr_container_labels_additional_labels contains a multiline string with additional labels to add to the container label file.
 # See `../templates/labels.j2` for details.
@@ -84,15 +89,7 @@ radarr_container_labels_traefik_tls_certResolver: default  # noqa var-naming
 # radarr_container_labels_additional_labels: |
 #   my.label=1
 #   another.label="here"
-radarr_container_labels_additional_labels: ''
-
-# radarr_container_additional_environment_variables contains a multiline string with additional environment variables to pass to the container.
-#
-# Example:
-# radarr_container_additional_environment_variables: |
-#   VAR=1
-#   ANOTHER=value
-radarr_container_additional_environment_variables: ''
+radarr_container_labels_additional_labels: ""
 
 # A list of additional "volumes" to mount in the container.
 #
@@ -111,3 +108,55 @@ radarr_container_additional_volumes: []
 
 # A list of extra arguments to pass to the container
 radarr_container_extra_arguments: []
+
+# Controls how long to wait for the container to stop gracefully before killing it.
+radarr_container_stop_grace_time_seconds: "{{ devture_systemd_docker_base_container_stop_grace_time_seconds }}"
+
+# Controls how long the pre-start cleanup should wait for stale container-name release
+# before failing startup explicitly.
+radarr_container_cleanup_timeout_seconds: "{{ devture_systemd_docker_base_container_cleanup_timeout_seconds }}"
+
+# Controls the delay between pre-start cleanup retries.
+radarr_container_cleanup_retry_delay_seconds: "{{ devture_systemd_docker_base_container_cleanup_retry_delay_seconds }}"
+
+# Shell command used in the systemd pre-start phase to deterministically remove a stale
+# container and wait until Docker releases its name.
+radarr_container_cleanup_command: |
+  i=0;
+  while [ "$i" -lt {{ radarr_container_cleanup_timeout_seconds }} ]; do
+  {{ devture_systemd_docker_base_host_command_docker }} stop -t {{ radarr_container_stop_grace_time_seconds }} {{ radarr_identifier }} >/dev/null 2>&1 || true;
+  {{ devture_systemd_docker_base_host_command_docker }} rm -f {{ radarr_identifier }} >/dev/null 2>&1 || true;
+  if {{ devture_systemd_docker_base_host_command_docker }} container inspect {{ radarr_identifier }} >/dev/null 2>&1; then
+  i=$((i + 1));
+  sleep {{ radarr_container_cleanup_retry_delay_seconds }};
+  continue;
+  fi;
+  if {{ devture_systemd_docker_base_host_command_docker }} info >/dev/null 2>&1; then
+  exit 0;
+  fi;
+  echo "Failed to query Docker daemon while cleaning up {{ radarr_identifier }}" >&2;
+  exit 1;
+  done;
+  echo "Failed to remove stale container {{ radarr_identifier }} after {{ radarr_container_cleanup_timeout_seconds }} attempts" >&2;
+  exit 1
+
+# Specify the timezone
+radarr_timezone: "Etc/UTC"
+
+# radarr_environment_variables_additional_variables contains a multiline string with additional environment variables to pass to the container.
+#
+# Example:
+# radarr_environment_variables_additional_variables: |
+#   VAR=1
+#   ANOTHER=value
+radarr_environment_variables_additional_variables: ""
+
+# radarr_restart_necessary controls whether the Radarr systemd
+# service will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+radarr_restart_necessary: false
