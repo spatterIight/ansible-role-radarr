@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 spatterlight
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for radarr service to become active (up to 180s)
+      ansible.builtin.systemd:
+        name: radarr.service
+      register: svc
+      until: svc.status.ActiveState == 'active'
+      retries: 36
+      delay: 5
+
+    - name: Assert radarr service is active
+      ansible.builtin.assert:
+        that: svc.status.ActiveState == 'active'
+        fail_msg: "radarr.service not active ({{ svc.status.ActiveState }})"
+        success_msg: "radarr.service is active"
+
+    - name: Wait for radarr HTTP endpoint to respond (up to 10m)
+      ansible.builtin.uri:
+        url: "http://localhost:7878/"
+        method: GET
+        status_code: [200, 302]
+        follow_redirects: none
+      register: ep
+      until: ep.status in [200, 302]
+      retries: 120
+      delay: 5
+
+    - name: Assert radarr HTTP endpoint responds
+      ansible.builtin.assert:
+        that: ep.status in [200, 302]
+        fail_msg: "radarr did not respond as expected ({{ ep.status | default('no response') }})"
+        success_msg: "radarr responded with {{ ep.status }}"
+
+    - name: Show service status summary
+      ansible.builtin.debug:
+        msg:
+          - "radarr systemd: {{ svc.status.ActiveState }}"
+          - "radarr HTTP: {{ ep.status }}"
