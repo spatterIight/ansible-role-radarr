@@ -17,7 +17,7 @@ radarr_base_path: "/{{ radarr_identifier }}"
 radarr_data_path: "{{ radarr_base_path }}/data"
 
 # renovate: datasource=docker depName=lscr.io/linuxserver/radarr versioning=semver
-radarr_version: 6.2.1
+radarr_version: 6.3.0
 radarr_arch: amd64
 
 radarr_uid: ""
