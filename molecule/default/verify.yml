@@ -22,6 +22,12 @@
         fail_msg: "radarr.service not active ({{ radarr_service.status.ActiveState }})"
         success_msg: "radarr.service is active"
 
+    - name: Retrieve Radarr service log for debugging
+      when: radarr_debug_service_enabled | bool
+      ansible.builtin.command:
+        cmd: journalctl -xeu radarr.service
+      changed_when: false
+
     - name: Wait for Radarr HTTP endpoint to respond (up to 10m)
       ansible.builtin.uri:
         url: "http://localhost:7878/"

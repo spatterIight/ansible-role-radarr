@@ -28,6 +28,10 @@ provisioner:
   inventory:
     group_vars:
       all:
+        # Helper variables
+        radarr_debug_service_enabled: false
+
+        # Variables for Radarr
         radarr_uid: 1000
         radarr_gid: 1000
         radarr_hostname: radarr
