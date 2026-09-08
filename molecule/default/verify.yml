@@ -88,24 +88,27 @@
     # The service the role installed
     # ------------------------------------------------------------------
 
-    - name: Wait for the Radarr service to become active
+    - name: Wait for the Radarr systemd service to become active (up to 180s)
       ansible.builtin.systemd_service:
         name: "{{ radarr_verify_identifier }}.service"
       register: radarr_service
       until: radarr_service.status.ActiveState == 'active'
       retries: 36
       delay: 5
+      # So that giving up is reported by the assertion below rather than as a
+      # wall of systemd unit properties.
       failed_when: false
 
-    # `Restart=always` makes this say `active` for a container that is
-    # crash-looping, so it is a precondition for the rest and not evidence.
-    - name: Assert the Radarr service is active
+    # `Restart=always` in the systemd unit means that even a container which crashes
+    # and gets restarted reads as active here, so this is a precondition rather than
+    # a result.
+    - name: Assert the Radarr systemd service is active
       ansible.builtin.assert:
         that: radarr_service.status.ActiveState == 'active'
-        fail_msg: "{{ radarr_verify_identifier }}.service is {{ radarr_service.status.ActiveState }}"
+        fail_msg: "{{ radarr_verify_identifier }}.service is not active ({{ radarr_service.status.ActiveState }})"
         success_msg: "{{ radarr_verify_identifier }}.service is active"
 
-    - name: Retrieve the Radarr service log for debugging
+    - name: Retrieve the Radarr systemd service log for debugging
       when: radarr_debug_service_enabled | bool
       ansible.builtin.command:
         cmd: "journalctl -xeu {{ radarr_verify_identifier }}.service"
