@@ -111,7 +111,7 @@
     - name: Retrieve the Radarr systemd service log for debugging
       when: radarr_debug_service_enabled | bool
       ansible.builtin.command:
-        cmd: "journalctl -xeu {{ radarr_verify_identifier }}.service"
+        cmd: "journalctl --no-pager --output-cat --unit={{ radarr_verify_identifier }}.service"
       changed_when: false
 
     # A published Docker port with nothing listening behind it resets the
