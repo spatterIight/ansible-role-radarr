@@ -79,7 +79,7 @@
     - name: Run the Radarr image with none of the role's configuration
       ansible.builtin.command:
         cmd: >-
-          docker run --detach --rm
+          docker run -d --rm
           --name {{ radarr_verify_control_container }}
           {{ radarr_container.Config.Image }}
       changed_when: true
