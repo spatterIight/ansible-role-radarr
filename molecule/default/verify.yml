@@ -39,6 +39,8 @@
     radarr_verify_absent_tag_label: molecule-never-created-tag
 
   tasks:
+    - name: Verify that Radarr works
+      block:
     # The role is not included in this playbook, so its defaults are not in
     # scope. Reading defaults/main.yml directly ties the version assertion
     # below.
@@ -489,3 +491,19 @@
           - "Radarr listening on: {{ radarr_listening_ports | join(', ') }} (configured: {{ radarr_container_http_port }})"
           - "Radarr instance name: {{ radarr_status.json.instanceName }}"
           - "Radarr database: {{ radarr_status.json.databaseType }} at migration {{ radarr_status.json.migrationVersion }}, under {{ radarr_verify_data_path }}"
+
+      rescue:
+        # Whatever went wrong, the reason is almost always in the systemd service log.
+        - name: Retrieve the Radarr systemd service log
+          ansible.builtin.command:
+            cmd: journalctl --no-pager --output=cat --unit=radarr.service
+          register: radarr_service_log
+          changed_when: false
+
+        - name: Show the Radarr systemd service log
+          ansible.builtin.debug:
+            var: radarr_service_log.stdout_lines
+
+        - name: Fail because verification did not pass
+          ansible.builtin.fail:
+            msg: "Radarr verification failed. The systemd service log is printed above."
