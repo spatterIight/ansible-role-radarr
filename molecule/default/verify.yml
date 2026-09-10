@@ -41,456 +41,456 @@
   tasks:
     - name: Verify that Radarr works
       block:
-    # The role is not included in this playbook, so its defaults are not in
-    # scope. Reading defaults/main.yml directly ties the version assertion
-    # below.
-    - name: Load the role defaults
-      ansible.builtin.include_vars:
-        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
-        name: radarr_defaults
+        # The role is not included in this playbook, so its defaults are not in
+        # scope. Reading defaults/main.yml directly ties the version assertion
+        # below.
+        - name: Load the role defaults
+          ansible.builtin.include_vars:
+            file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+            name: radarr_defaults
 
-    - name: Inspect Radarr container
-      ansible.builtin.command:
-        cmd: docker container inspect radarr
-      register: radarr_container_raw
-      changed_when: false
+        - name: Inspect Radarr container
+          ansible.builtin.command:
+            cmd: docker container inspect radarr
+          register: radarr_container_raw
+          changed_when: false
 
-    - name: Parse the Radarr container definition
-      ansible.builtin.set_fact:
-        radarr_container: "{{ (radarr_container_raw.stdout | from_json)[0] }}"
+        - name: Parse the Radarr container definition
+          ansible.builtin.set_fact:
+            radarr_container: "{{ (radarr_container_raw.stdout | from_json)[0] }}"
 
-    # ------------------------------------------------------------------
-    # The negative control, started first so that it boots alongside the
-    # assertions below rather than after them
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # The negative control, started first so that it boots alongside the
+        # assertions below rather than after them
+        # ------------------------------------------------------------------
 
-    # The same image, with none of the role's configuration. Anything this one
-    # can do unaided is worthless as evidence about the role, and it can do more
-    # than one would hope: it serves HTTP 200 on `/`, on `/login` and on every
-    # path that does not exist, answers `/ping` with `{"status": "OK"}`, and
-    # hands its API key to anyone who asks for `/initialize.json`. An HTTP probe
-    # that only looks for a 200 therefore proves nothing at all, which is why
-    # every assertion below is about a value this container cannot produce.
-    - name: Remove any leftover stock Radarr control container
-      ansible.builtin.command:
-        cmd: "docker rm -f {{ radarr_verify_control_container }}"
-      changed_when: false
-      failed_when: false
+        # The same image, with none of the role's configuration. Anything this one
+        # can do unaided is worthless as evidence about the role, and it can do more
+        # than one would hope: it serves HTTP 200 on `/`, on `/login` and on every
+        # path that does not exist, answers `/ping` with `{"status": "OK"}`, and
+        # hands its API key to anyone who asks for `/initialize.json`. An HTTP probe
+        # that only looks for a 200 therefore proves nothing at all, which is why
+        # every assertion below is about a value this container cannot produce.
+        - name: Remove any leftover stock Radarr control container
+          ansible.builtin.command:
+            cmd: "docker rm -f {{ radarr_verify_control_container }}"
+          changed_when: false
+          failed_when: false
 
-    - name: Run the Radarr image with none of the role's configuration
-      ansible.builtin.command:
-        cmd: >-
-          docker run -d --rm
-          --name {{ radarr_verify_control_container }}
-          {{ radarr_container.Config.Image }}
-      changed_when: true
+        - name: Run the Radarr image with none of the role's configuration
+          ansible.builtin.command:
+            cmd: >-
+              docker run -d --rm
+              --name {{ radarr_verify_control_container }}
+              {{ radarr_container.Config.Image }}
+          changed_when: true
 
-    # ------------------------------------------------------------------
-    # The service the role installed
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # The service the role installed
+        # ------------------------------------------------------------------
 
-    - name: Wait for the Radarr systemd service to become active (up to 180s)
-      ansible.builtin.systemd_service:
-        name: radarr.service
-      register: radarr_service
-      until: radarr_service.status.ActiveState == 'active'
-      retries: 36
-      delay: 5
-      # So that giving up is reported by the assertion below rather than as a
-      # wall of systemd unit properties.
-      failed_when: false
+        - name: Wait for the Radarr systemd service to become active (up to 180s)
+          ansible.builtin.systemd_service:
+            name: radarr.service
+          register: radarr_service
+          until: radarr_service.status.ActiveState == 'active'
+          retries: 36
+          delay: 5
+          # So that giving up is reported by the assertion below rather than as a
+          # wall of systemd unit properties.
+          failed_when: false
 
-    # `Restart=always` in the systemd unit means that even a container which crashes
-    # and gets restarted reads as active here, so this is a precondition rather than
-    # a result.
-    - name: Assert the Radarr systemd service is active
-      ansible.builtin.assert:
-        that: radarr_service.status.ActiveState == 'active'
-        fail_msg: "radarr.service is not active ({{ radarr_service.status.ActiveState }})"
-        success_msg: "radarr.service is active"
+        # `Restart=always` in the systemd unit means that even a container which crashes
+        # and gets restarted reads as active here, so this is a precondition rather than
+        # a result.
+        - name: Assert the Radarr systemd service is active
+          ansible.builtin.assert:
+            that: radarr_service.status.ActiveState == 'active'
+            fail_msg: "radarr.service is not active ({{ radarr_service.status.ActiveState }})"
+            success_msg: "radarr.service is active"
 
-    - name: Retrieve the Radarr systemd service log for debugging
-      when: radarr_debug_service_enabled | bool
-      ansible.builtin.command:
-        cmd: journalctl --no-pager --output-cat --unit=radarr.service
-      changed_when: false
+        - name: Retrieve the Radarr systemd service log for debugging
+          when: radarr_debug_service_enabled | bool
+          ansible.builtin.command:
+            cmd: journalctl --no-pager --output-cat --unit=radarr.service
+          changed_when: false
 
-    # A published Docker port with nothing listening behind it resets the
-    # connection rather than refusing it, which `uri` reports as status -1, and
-    # Radarr needs a while to migrate its database before it serves anything.
-    # The loop has to survive both, so failures are tolerated here and judged
-    # after.
-    - name: Wait for Radarr to answer on the port the role configured
-      ansible.builtin.uri:
-        url: "{{ radarr_verify_url }}/ping"
-        method: GET
-        follow_redirects: none
-      register: radarr_ping
-      until: radarr_ping.status == 200
-      retries: 120
-      delay: 5
-      failed_when: false
+        # A published Docker port with nothing listening behind it resets the
+        # connection rather than refusing it, which `uri` reports as status -1, and
+        # Radarr needs a while to migrate its database before it serves anything.
+        # The loop has to survive both, so failures are tolerated here and judged
+        # after.
+        - name: Wait for Radarr to answer on the port the role configured
+          ansible.builtin.uri:
+            url: "{{ radarr_verify_url }}/ping"
+            method: GET
+            follow_redirects: none
+          register: radarr_ping
+          until: radarr_ping.status == 200
+          retries: 120
+          delay: 5
+          failed_when: false
 
-    # `/ping` is Radarr's own health check and it opens the SQLite database to
-    # answer, so unlike the single-page app it cannot answer while Radarr is
-    # broken.
-    - name: Assert Radarr answers on the port the role configured
-      ansible.builtin.assert:
-        that:
-          - radarr_ping.status == 200
-          - (radarr_ping.json | default({})).get('status', '') == 'OK'
-        fail_msg: >-
-          Radarr did not answer on {{ radarr_verify_url }}/ping
-          (status {{ radarr_ping.status | default('none') }})
-        success_msg: "Radarr answers on {{ radarr_verify_url }}/ping"
+        # `/ping` is Radarr's own health check and it opens the SQLite database to
+        # answer, so unlike the single-page app it cannot answer while Radarr is
+        # broken.
+        - name: Assert Radarr answers on the port the role configured
+          ansible.builtin.assert:
+            that:
+              - radarr_ping.status == 200
+              - (radarr_ping.json | default({})).get('status', '') == 'OK'
+            fail_msg: >-
+              Radarr did not answer on {{ radarr_verify_url }}/ping
+              (status {{ radarr_ping.status | default('none') }})
+            success_msg: "Radarr answers on {{ radarr_verify_url }}/ping"
 
-    # ------------------------------------------------------------------
-    # Does the role's configuration reach the process?
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Does the role's configuration reach the process?
+        # ------------------------------------------------------------------
 
-    # Radarr keeps its port in the config.xml it maintains for itself under
-    # `radarr_data_path`, which this role does not template. Only the
-    # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
-    # a Radarr listening anywhere other than 7878 is the role's doing. The
-    # absence of 7878 matters as much as the presence of the configured port:
-    # were the override dropped, the published port and the Traefik label would
-    # still say 17878 while the process sat on 7878.
-    - name: Read the ports Radarr listens on
-      ansible.builtin.command:
-        cmd: docker exec radarr netstat -lnt
-      register: radarr_listening_raw
-      changed_when: false
+        # Radarr keeps its port in the config.xml it maintains for itself under
+        # `radarr_data_path`, which this role does not template. Only the
+        # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
+        # a Radarr listening anywhere other than 7878 is the role's doing. The
+        # absence of 7878 matters as much as the presence of the configured port:
+        # were the override dropped, the published port and the Traefik label would
+        # still say 17878 while the process sat on 7878.
+        - name: Read the ports Radarr listens on
+          ansible.builtin.command:
+            cmd: docker exec radarr netstat -lnt
+          register: radarr_listening_raw
+          changed_when: false
 
-    - name: Make sense of the ports Radarr listens on
-      ansible.builtin.set_fact:
-        radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
+        - name: Make sense of the ports Radarr listens on
+          ansible.builtin.set_fact:
+            radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
 
-    - name: Assert Radarr listens on the port the role configured and not on its own default
-      ansible.builtin.assert:
-        that:
-          - radarr_container_http_port | string in radarr_listening_ports
-          - "'7878' not in radarr_listening_ports"
-        fail_msg: >-
-          Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
-          {{ radarr_container_http_port }}, so radarr_container_http_port does not reach the process
-        success_msg: >-
-          Radarr listens on {{ radarr_container_http_port }} and not on its built-in 7878,
-          so radarr_container_http_port reaches the process
+        - name: Assert Radarr listens on the port the role configured and not on its own default
+          ansible.builtin.assert:
+            that:
+              - radarr_container_http_port | string in radarr_listening_ports
+              - "'7878' not in radarr_listening_ports"
+            fail_msg: >-
+              Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
+              {{ radarr_container_http_port }}, so radarr_container_http_port does not reach the process
+            success_msg: >-
+              Radarr listens on {{ radarr_container_http_port }} and not on its built-in 7878,
+              so radarr_container_http_port reaches the process
 
-    # `radarr_timezone` is the only thing that can move the container's clock
-    # off UTC, and Pacific/Chatham's quarter-hour offset is shared with no other
-    # timezone.
-    - name: Read the timezone offset inside the Radarr container
-      ansible.builtin.command:
-        cmd: docker exec radarr date +%z
-      register: radarr_timezone_offset
-      changed_when: false
+        # `radarr_timezone` is the only thing that can move the container's clock
+        # off UTC, and Pacific/Chatham's quarter-hour offset is shared with no other
+        # timezone.
+        - name: Read the timezone offset inside the Radarr container
+          ansible.builtin.command:
+            cmd: docker exec radarr date +%z
+          register: radarr_timezone_offset
+          changed_when: false
 
-    - name: Assert the Radarr container runs in the configured timezone
-      ansible.builtin.assert:
-        # +12:45 in standard time, +13:45 in daylight saving time.
-        that: radarr_timezone_offset.stdout | trim in ['+1245', '+1345']
-        fail_msg: >-
-          The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }}, not at the
-          offset of {{ radarr_timezone }}, so radarr_timezone does not reach the process
-        success_msg: >-
-          The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }},
-          the offset of {{ radarr_timezone }}
+        - name: Assert the Radarr container runs in the configured timezone
+          ansible.builtin.assert:
+            # +12:45 in standard time, +13:45 in daylight saving time.
+            that: radarr_timezone_offset.stdout | trim in ['+1245', '+1345']
+            fail_msg: >-
+              The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }}, not at the
+              offset of {{ radarr_timezone }}, so radarr_timezone does not reach the process
+            success_msg: >-
+              The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }},
+              the offset of {{ radarr_timezone }}
 
-    # The linuxserver.io PUID/PGID pattern has left a needed directory
-    # unwritable in other roles of this fleet, so the uid here is deliberately
-    # not one the test image already carries - and Radarr has to have written
-    # its database as it anyway.
-    - name: Read the user Radarr runs as
-      ansible.builtin.command:
-        cmd: docker exec radarr id -u
-      register: radarr_container_uid
-      changed_when: false
+        # The linuxserver.io PUID/PGID pattern has left a needed directory
+        # unwritable in other roles of this fleet, so the uid here is deliberately
+        # not one the test image already carries - and Radarr has to have written
+        # its database as it anyway.
+        - name: Read the user Radarr runs as
+          ansible.builtin.command:
+            cmd: docker exec radarr id -u
+          register: radarr_container_uid
+          changed_when: false
 
-    - name: Read the ownership of the Radarr database
-      ansible.builtin.stat:
-        path: "{{ radarr_verify_data_path }}/radarr.db"
-      register: radarr_database_stat
+        - name: Read the ownership of the Radarr database
+          ansible.builtin.stat:
+            path: "{{ radarr_verify_data_path }}/radarr.db"
+          register: radarr_database_stat
 
-    - name: Assert Radarr runs as the configured user and owns its data
-      ansible.builtin.assert:
-        that:
-          - radarr_container_uid.stdout | trim | int == radarr_uid | int
-          - radarr_database_stat.stat.exists
-          - radarr_database_stat.stat.uid | int == radarr_uid | int
-          - radarr_database_stat.stat.gid | int == radarr_gid | int
-        fail_msg: >-
-          Radarr runs as uid {{ radarr_container_uid.stdout | trim }} and
-          {{ radarr_verify_data_path }}/radarr.db belongs to
-          {{ radarr_database_stat.stat.uid | default('nobody') }}:{{ radarr_database_stat.stat.gid | default('nobody') }},
-          not to the configured {{ radarr_uid }}:{{ radarr_gid }}
-        success_msg: >-
-          Radarr runs as uid {{ radarr_uid }} and owns {{ radarr_verify_data_path }}/radarr.db
+        - name: Assert Radarr runs as the configured user and owns its data
+          ansible.builtin.assert:
+            that:
+              - radarr_container_uid.stdout | trim | int == radarr_uid | int
+              - radarr_database_stat.stat.exists
+              - radarr_database_stat.stat.uid | int == radarr_uid | int
+              - radarr_database_stat.stat.gid | int == radarr_gid | int
+            fail_msg: >-
+              Radarr runs as uid {{ radarr_container_uid.stdout | trim }} and
+              {{ radarr_verify_data_path }}/radarr.db belongs to
+              {{ radarr_database_stat.stat.uid | default('nobody') }}:{{ radarr_database_stat.stat.gid | default('nobody') }},
+              not to the configured {{ radarr_uid }}:{{ radarr_gid }}
+            success_msg: >-
+              Radarr runs as uid {{ radarr_uid }} and owns {{ radarr_verify_data_path }}/radarr.db
 
-    # `radarr_container_additional_volumes` has been declared but never rendered
-    # in other roles of this fleet. Reading the file back from inside the
-    # container is the difference between the variable existing and it working.
-    - name: Read the additional volume from inside the Radarr container
-      ansible.builtin.command:
-        cmd: >-
-          docker exec radarr
-          cat {{ radarr_molecule_extra_volume_dst }}/marker.txt
-      register: radarr_extra_volume
-      changed_when: false
-      failed_when: false
+        # `radarr_container_additional_volumes` has been declared but never rendered
+        # in other roles of this fleet. Reading the file back from inside the
+        # container is the difference between the variable existing and it working.
+        - name: Read the additional volume from inside the Radarr container
+          ansible.builtin.command:
+            cmd: >-
+              docker exec radarr
+              cat {{ radarr_molecule_extra_volume_dst }}/marker.txt
+          register: radarr_extra_volume
+          changed_when: false
+          failed_when: false
 
-    - name: Assert the additional volume is mounted into the Radarr container
-      ansible.builtin.assert:
-        that:
-          - radarr_extra_volume.rc == 0
-          - radarr_extra_volume.stdout | trim == radarr_molecule_extra_volume_marker
-        fail_msg: >-
-          {{ radarr_molecule_extra_volume_dst }}/marker.txt does not hold
-          {{ radarr_molecule_extra_volume_marker }}, so radarr_container_additional_volumes
-          is declared but not rendered into the systemd unit
-        success_msg: >-
-          {{ radarr_molecule_extra_volume_src }} is mounted at
-          {{ radarr_molecule_extra_volume_dst }} inside the container
+        - name: Assert the additional volume is mounted into the Radarr container
+          ansible.builtin.assert:
+            that:
+              - radarr_extra_volume.rc == 0
+              - radarr_extra_volume.stdout | trim == radarr_molecule_extra_volume_marker
+            fail_msg: >-
+              {{ radarr_molecule_extra_volume_dst }}/marker.txt does not hold
+              {{ radarr_molecule_extra_volume_marker }}, so radarr_container_additional_volumes
+              is declared but not rendered into the systemd unit
+            success_msg: >-
+              {{ radarr_molecule_extra_volume_src }} is mounted at
+              {{ radarr_molecule_extra_volume_dst }} inside the container
 
-    - name: Read the Radarr container label file the role rendered
-      ansible.builtin.slurp:
-        src: "{{ radarr_verify_base_path }}/labels"
-      register: radarr_labels_file
+        - name: Read the Radarr container label file the role rendered
+          ansible.builtin.slurp:
+            src: "{{ radarr_verify_base_path }}/labels"
+          register: radarr_labels_file
 
-    # No Traefik runs here, so these labels are checked as text. The port in
-    # them is the one that matters: a Traefik routing to a port Radarr is not
-    # listening on is exactly the failure the env file override prevents.
-    - name: Assert the Traefik labels agree with the port Radarr listens on
-      ansible.builtin.assert:
-        that:
-          - radarr_verify_expected_port_label in radarr_labels_content
-          - radarr_verify_expected_strip_prefix_label in radarr_labels_content
-          - radarr_verify_expected_router_rule in radarr_labels_content
-        fail_msg: >-
-          The rendered label file does not route {{ radarr_path_prefix }} to
-          {{ radarr_container_http_port }}: {{ radarr_labels_content }}
-        success_msg: >-
-          The rendered label file routes {{ radarr_path_prefix }} to {{ radarr_container_http_port }}
-      vars:
-        radarr_labels_content: "{{ radarr_labels_file.content | b64decode }}"
-        radarr_verify_expected_port_label: >-
-          traefik.http.services.radarr.loadbalancer.server.port={{ radarr_container_http_port }}
-        radarr_verify_expected_strip_prefix_label: >-
-          traefik.http.middlewares.radarr-strip-prefix.stripprefix.prefixes={{ radarr_path_prefix }}
-        radarr_verify_expected_router_rule: >-
-          traefik.http.routers.radarr.rule=Host(`{{ radarr_hostname }}`) &&
-          PathPrefix(`{{ radarr_path_prefix }}`)
+        # No Traefik runs here, so these labels are checked as text. The port in
+        # them is the one that matters: a Traefik routing to a port Radarr is not
+        # listening on is exactly the failure the env file override prevents.
+        - name: Assert the Traefik labels agree with the port Radarr listens on
+          ansible.builtin.assert:
+            that:
+              - radarr_verify_expected_port_label in radarr_labels_content
+              - radarr_verify_expected_strip_prefix_label in radarr_labels_content
+              - radarr_verify_expected_router_rule in radarr_labels_content
+            fail_msg: >-
+              The rendered label file does not route {{ radarr_path_prefix }} to
+              {{ radarr_container_http_port }}: {{ radarr_labels_content }}
+            success_msg: >-
+              The rendered label file routes {{ radarr_path_prefix }} to {{ radarr_container_http_port }}
+          vars:
+            radarr_labels_content: "{{ radarr_labels_file.content | b64decode }}"
+            radarr_verify_expected_port_label: >-
+              traefik.http.services.radarr.loadbalancer.server.port={{ radarr_container_http_port }}
+            radarr_verify_expected_strip_prefix_label: >-
+              traefik.http.middlewares.radarr-strip-prefix.stripprefix.prefixes={{ radarr_path_prefix }}
+            radarr_verify_expected_router_rule: >-
+              traefik.http.routers.radarr.rule=Host(`{{ radarr_hostname }}`) &&
+              PathPrefix(`{{ radarr_path_prefix }}`)
 
-    # ------------------------------------------------------------------
-    # The running version, which is what earns or denies automerge
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # The running version, which is what earns or denies automerge
+        # ------------------------------------------------------------------
 
-    - name: Read the Radarr system status
-      ansible.builtin.uri:
-        url: "{{ radarr_verify_api_url }}/system/status"
-        method: GET
-        headers: "{{ radarr_verify_headers }}"
-        follow_redirects: none
-      register: radarr_status
-      changed_when: false
+        - name: Read the Radarr system status
+          ansible.builtin.uri:
+            url: "{{ radarr_verify_api_url }}/system/status"
+            method: GET
+            headers: "{{ radarr_verify_headers }}"
+            follow_redirects: none
+          register: radarr_status
+          changed_when: false
 
-    # `radarr_version` pins a three-component linuxserver.io tag (`6.3.0`) while
-    # Radarr's own version has four components (`6.3.0.10514`) and the image
-    # label carries the rebuild counter on top (`6.3.0.10514-ls314`), so the pin
-    # is compared as a prefix - with the trailing dot, or `6.3.0` would also
-    # accept a `6.3.01` that does not exist yet but could.
-    - name: Assert the running Radarr is the version this role installs
-      ansible.builtin.assert:
-        that:
-          - radarr_status.json.version is string
-          - radarr_status.json.version.startswith(radarr_verify_pinned_version ~ '.')
-          - radarr_status.json.packageVersion.startswith(radarr_verify_pinned_version ~ '.')
-          - radarr_verify_image_label.startswith(radarr_verify_pinned_version ~ '.')
-        fail_msg: "Radarr reports {{ radarr_status.json.version | default('none') }}, expected {{ radarr_defaults.radarr_version }}"
-        success_msg: "Radarr reports {{ radarr_status.json.version }}"
-      vars:
-        radarr_verify_pinned_version: "{{ radarr_defaults.radarr_version | string }}"
-        radarr_verify_image_label: "{{ radarr_container.Config.Labels['org.opencontainers.image.version'] }}"
+        # `radarr_version` pins a three-component linuxserver.io tag (`6.3.0`) while
+        # Radarr's own version has four components (`6.3.0.10514`) and the image
+        # label carries the rebuild counter on top (`6.3.0.10514-ls314`), so the pin
+        # is compared as a prefix - with the trailing dot, or `6.3.0` would also
+        # accept a `6.3.01` that does not exist yet but could.
+        - name: Assert the running Radarr is the version this role installs
+          ansible.builtin.assert:
+            that:
+              - radarr_status.json.version is string
+              - radarr_status.json.version.startswith(radarr_verify_pinned_version ~ '.')
+              - radarr_status.json.packageVersion.startswith(radarr_verify_pinned_version ~ '.')
+              - radarr_verify_image_label.startswith(radarr_verify_pinned_version ~ '.')
+            fail_msg: "Radarr reports {{ radarr_status.json.version | default('none') }}, expected {{ radarr_defaults.radarr_version }}"
+            success_msg: "Radarr reports {{ radarr_status.json.version }}"
+          vars:
+            radarr_verify_pinned_version: "{{ radarr_defaults.radarr_version | string }}"
+            radarr_verify_image_label: "{{ radarr_container.Config.Labels['org.opencontainers.image.version'] }}"
 
-    # The API key and the instance name both come from
-    # `radarr_environment_variables_additional_variables`. Radarr generates a
-    # random API key on first start and calls itself "Radarr", so a status
-    # response that answered to the role's key and carries the role's instance
-    # name cannot have come from an unconfigured Radarr. `migrationVersion` and
-    # `appData` come out of the SQLite database Radarr keeps under the path the
-    # role bind-mounts, so this response is not a static page either.
-    - name: Assert the additional environment variables reached Radarr
-      ansible.builtin.assert:
-        that:
-          - radarr_status.status == 200
-          - radarr_status.json.instanceName == radarr_molecule_instance_name
-          - radarr_status.json.databaseType == 'sqLite'
-          - radarr_status.json.migrationVersion | int > 0
-          - radarr_status.json.appData == '/config'
-        fail_msg: >-
-          Radarr calls itself {{ radarr_status.json.instanceName | default('none') }} rather than
-          {{ radarr_molecule_instance_name }}, so radarr_environment_variables_additional_variables
-          does not reach the process
-        success_msg: >-
-          Radarr answered the role's API key, calls itself {{ radarr_molecule_instance_name }}
-          and reports database migration {{ radarr_status.json.migrationVersion }}
+        # The API key and the instance name both come from
+        # `radarr_environment_variables_additional_variables`. Radarr generates a
+        # random API key on first start and calls itself "Radarr", so a status
+        # response that answered to the role's key and carries the role's instance
+        # name cannot have come from an unconfigured Radarr. `migrationVersion` and
+        # `appData` come out of the SQLite database Radarr keeps under the path the
+        # role bind-mounts, so this response is not a static page either.
+        - name: Assert the additional environment variables reached Radarr
+          ansible.builtin.assert:
+            that:
+              - radarr_status.status == 200
+              - radarr_status.json.instanceName == radarr_molecule_instance_name
+              - radarr_status.json.databaseType == 'sqLite'
+              - radarr_status.json.migrationVersion | int > 0
+              - radarr_status.json.appData == '/config'
+            fail_msg: >-
+              Radarr calls itself {{ radarr_status.json.instanceName | default('none') }} rather than
+              {{ radarr_molecule_instance_name }}, so radarr_environment_variables_additional_variables
+              does not reach the process
+            success_msg: >-
+              Radarr answered the role's API key, calls itself {{ radarr_molecule_instance_name }}
+              and reports database migration {{ radarr_status.json.migrationVersion }}
 
-    # ------------------------------------------------------------------
-    # A round trip through the API and out the other side of the database
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # A round trip through the API and out the other side of the database
+        # ------------------------------------------------------------------
 
-    - name: Create a tag through the Radarr API
-      ansible.builtin.uri:
-        url: "{{ radarr_verify_api_url }}/tag"
-        method: POST
-        headers: "{{ radarr_verify_headers }}"
-        body_format: json
-        body:
-          label: "{{ radarr_verify_tag_label }}"
-        status_code: [201]
-        follow_redirects: none
-      changed_when: true
+        - name: Create a tag through the Radarr API
+          ansible.builtin.uri:
+            url: "{{ radarr_verify_api_url }}/tag"
+            method: POST
+            headers: "{{ radarr_verify_headers }}"
+            body_format: json
+            body:
+              label: "{{ radarr_verify_tag_label }}"
+            status_code: [201]
+            follow_redirects: none
+          changed_when: true
 
-    - name: Read the tags back through the Radarr API
-      ansible.builtin.uri:
-        url: "{{ radarr_verify_api_url }}/tag"
-        method: GET
-        headers: "{{ radarr_verify_headers }}"
-        follow_redirects: none
-      register: radarr_tags
-      changed_when: false
+        - name: Read the tags back through the Radarr API
+          ansible.builtin.uri:
+            url: "{{ radarr_verify_api_url }}/tag"
+            method: GET
+            headers: "{{ radarr_verify_headers }}"
+            follow_redirects: none
+          register: radarr_tags
+          changed_when: false
 
-    - name: Assert the Radarr API returns the tag that was created and nothing else
-      ansible.builtin.assert:
-        that:
-          - radarr_verify_tag_label in radarr_tag_labels
-          - radarr_verify_absent_tag_label not in radarr_tag_labels
-        fail_msg: "The Radarr API returned {{ radarr_tag_labels | join(', ') }}"
-        success_msg: "The Radarr API returned the tag that was created"
-      vars:
-        radarr_tag_labels: "{{ radarr_tags.json | map(attribute='label') | list }}"
+        - name: Assert the Radarr API returns the tag that was created and nothing else
+          ansible.builtin.assert:
+            that:
+              - radarr_verify_tag_label in radarr_tag_labels
+              - radarr_verify_absent_tag_label not in radarr_tag_labels
+            fail_msg: "The Radarr API returned {{ radarr_tag_labels | join(', ') }}"
+            success_msg: "The Radarr API returned the tag that was created"
+          vars:
+            radarr_tag_labels: "{{ radarr_tags.json | map(attribute='label') | list }}"
 
-    # The API could be answering out of memory. Radarr keeps its state in a
-    # SQLite database in the directory the role bind-mounts, so the row has to
-    # be there too, on the host side of the mount.
-    - name: Read the tags out of the Radarr database
-      ansible.builtin.command:
-        argv:
-          - python3
-          - -c
-          - |
-            import json, sqlite3, sys
-            connection = sqlite3.connect(sys.argv[1])
-            print(json.dumps([row[0] for row in connection.execute('SELECT "Label" FROM "Tags"')]))
-          - "{{ radarr_verify_data_path }}/radarr.db"
-      register: radarr_database_tags
-      changed_when: false
+        # The API could be answering out of memory. Radarr keeps its state in a
+        # SQLite database in the directory the role bind-mounts, so the row has to
+        # be there too, on the host side of the mount.
+        - name: Read the tags out of the Radarr database
+          ansible.builtin.command:
+            argv:
+              - python3
+              - -c
+              - |
+                import json, sqlite3, sys
+                connection = sqlite3.connect(sys.argv[1])
+                print(json.dumps([row[0] for row in connection.execute('SELECT "Label" FROM "Tags"')]))
+              - "{{ radarr_verify_data_path }}/radarr.db"
+          register: radarr_database_tags
+          changed_when: false
 
-    - name: Assert the tag reached the Radarr database under the role's data path
-      ansible.builtin.assert:
-        that:
-          - radarr_verify_tag_label in radarr_database_labels
-          - radarr_verify_absent_tag_label not in radarr_database_labels
-        fail_msg: "{{ radarr_verify_data_path }}/radarr.db holds {{ radarr_database_labels | join(', ') }}"
-        success_msg: >-
-          {{ radarr_verify_data_path }}/radarr.db holds the tag the API created,
-          so Radarr's state lives where the role put it
-      vars:
-        radarr_database_labels: "{{ radarr_database_tags.stdout | from_json }}"
+        - name: Assert the tag reached the Radarr database under the role's data path
+          ansible.builtin.assert:
+            that:
+              - radarr_verify_tag_label in radarr_database_labels
+              - radarr_verify_absent_tag_label not in radarr_database_labels
+            fail_msg: "{{ radarr_verify_data_path }}/radarr.db holds {{ radarr_database_labels | join(', ') }}"
+            success_msg: >-
+              {{ radarr_verify_data_path }}/radarr.db holds the tag the API created,
+              so Radarr's state lives where the role put it
+          vars:
+            radarr_database_labels: "{{ radarr_database_tags.stdout | from_json }}"
 
-    # ------------------------------------------------------------------
-    # What the negative control has to say
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # What the negative control has to say
+        # ------------------------------------------------------------------
 
-    - name: Wait for the stock Radarr control container to come up
-      ansible.builtin.command:
-        cmd: >-
-          docker exec {{ radarr_verify_control_container }}
-          wget --quiet --output-document=- http://127.0.0.1:7878/initialize.json
-      register: radarr_control_initialize
-      until: radarr_control_initialize.rc == 0
-      retries: 60
-      delay: 5
-      changed_when: false
-      failed_when: false
+        - name: Wait for the stock Radarr control container to come up
+          ansible.builtin.command:
+            cmd: >-
+              docker exec {{ radarr_verify_control_container }}
+              wget --quiet --output-document=- http://127.0.0.1:7878/initialize.json
+          register: radarr_control_initialize
+          until: radarr_control_initialize.rc == 0
+          retries: 60
+          delay: 5
+          changed_when: false
+          failed_when: false
 
-    - name: Ask the stock Radarr control container for a path that does not exist
-      ansible.builtin.command:
-        cmd: >-
-          docker exec {{ radarr_verify_control_container }}
-          wget --quiet --output-document=- http://127.0.0.1:7878{{ radarr_verify_nonexistent_path }}
-      register: radarr_control_nonexistent
-      changed_when: false
-      failed_when: false
+        - name: Ask the stock Radarr control container for a path that does not exist
+          ansible.builtin.command:
+            cmd: >-
+              docker exec {{ radarr_verify_control_container }}
+              wget --quiet --output-document=- http://127.0.0.1:7878{{ radarr_verify_nonexistent_path }}
+          register: radarr_control_nonexistent
+          changed_when: false
+          failed_when: false
 
-    - name: Assert the stock Radarr image serves a different instance entirely
-      ansible.builtin.assert:
-        that:
-          # It comes up unaided, so "it responds" is not evidence about the role.
-          - radarr_control_initialize.rc == 0
-          # And it answers 200 even for a path Radarr has no route for, which is
-          # what makes a bare `GET /` worthless as a probe.
-          - radarr_control_nonexistent.rc == 0
-          # It is a plain, unauthenticated Radarr: it hands out its own API key.
-          - radarr_control_json.apiKey | length > 0
-          # And that key is not the role's, so the status response above was
-          # answered by a Radarr the role configured.
-          - radarr_control_json.apiKey != radarr_molecule_api_key
-          - radarr_control_json.instanceName == 'Radarr'
-        fail_msg: >-
-          The stock Radarr image produced {{ radarr_control_initialize.stdout | default('none') }},
-          which makes the assertions above unattributable to the role
-        success_msg: >-
-          The stock Radarr image answers 200 on any path, serves its own random API key
-          and calls itself "Radarr", so the configured instance above is the role's doing
-      vars:
-        radarr_control_json: "{{ radarr_control_initialize.stdout | from_json }}"
+        - name: Assert the stock Radarr image serves a different instance entirely
+          ansible.builtin.assert:
+            that:
+              # It comes up unaided, so "it responds" is not evidence about the role.
+              - radarr_control_initialize.rc == 0
+              # And it answers 200 even for a path Radarr has no route for, which is
+              # what makes a bare `GET /` worthless as a probe.
+              - radarr_control_nonexistent.rc == 0
+              # It is a plain, unauthenticated Radarr: it hands out its own API key.
+              - radarr_control_json.apiKey | length > 0
+              # And that key is not the role's, so the status response above was
+              # answered by a Radarr the role configured.
+              - radarr_control_json.apiKey != radarr_molecule_api_key
+              - radarr_control_json.instanceName == 'Radarr'
+            fail_msg: >-
+              The stock Radarr image produced {{ radarr_control_initialize.stdout | default('none') }},
+              which makes the assertions above unattributable to the role
+            success_msg: >-
+              The stock Radarr image answers 200 on any path, serves its own random API key
+              and calls itself "Radarr", so the configured instance above is the role's doing
+          vars:
+            radarr_control_json: "{{ radarr_control_initialize.stdout | from_json }}"
 
-    - name: Offer the role's API key to the stock Radarr control container
-      ansible.builtin.command:
-        cmd: >-
-          docker exec {{ radarr_verify_control_container }}
-          wget --quiet --output-document=- --header=X-Api-Key:{{ radarr_molecule_api_key }}
-          http://127.0.0.1:7878/api/v3/system/status
-      register: radarr_control_status
-      changed_when: false
-      failed_when: false
+        - name: Offer the role's API key to the stock Radarr control container
+          ansible.builtin.command:
+            cmd: >-
+              docker exec {{ radarr_verify_control_container }}
+              wget --quiet --output-document=- --header=X-Api-Key:{{ radarr_molecule_api_key }}
+              http://127.0.0.1:7878/api/v3/system/status
+          register: radarr_control_status
+          changed_when: false
+          failed_when: false
 
-    - name: Read the ports the stock Radarr control container listens on
-      ansible.builtin.command:
-        cmd: "docker exec {{ radarr_verify_control_container }} netstat -lnt"
-      register: radarr_control_listening
-      changed_when: false
+        - name: Read the ports the stock Radarr control container listens on
+          ansible.builtin.command:
+            cmd: "docker exec {{ radarr_verify_control_container }} netstat -lnt"
+          register: radarr_control_listening
+          changed_when: false
 
-    - name: Assert the stock Radarr image has neither the role's key nor the role's port
-      ansible.builtin.assert:
-        that:
-          - radarr_control_status.rc != 0
-          - "'7878' in radarr_control_ports"
-          - radarr_container_http_port | string not in radarr_control_ports
-        fail_msg: >-
-          The stock Radarr image accepted the role's API key or listens on
-          {{ radarr_container_http_port }} ({{ radarr_control_ports | join(', ') }}),
-          so neither is evidence that the role configured anything
-        success_msg: >-
-          The stock Radarr image rejects the role's API key and listens on its built-in 7878,
-          so both are the role's doing
-      vars:
-        radarr_control_ports: "{{ radarr_control_listening.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
+        - name: Assert the stock Radarr image has neither the role's key nor the role's port
+          ansible.builtin.assert:
+            that:
+              - radarr_control_status.rc != 0
+              - "'7878' in radarr_control_ports"
+              - radarr_container_http_port | string not in radarr_control_ports
+            fail_msg: >-
+              The stock Radarr image accepted the role's API key or listens on
+              {{ radarr_container_http_port }} ({{ radarr_control_ports | join(', ') }}),
+              so neither is evidence that the role configured anything
+            success_msg: >-
+              The stock Radarr image rejects the role's API key and listens on its built-in 7878,
+              so both are the role's doing
+          vars:
+            radarr_control_ports: "{{ radarr_control_listening.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
 
-    - name: Remove the stock Radarr control container
-      ansible.builtin.command:
-        cmd: "docker rm -f {{ radarr_verify_control_container }}"
-      changed_when: true
+        - name: Remove the stock Radarr control container
+          ansible.builtin.command:
+            cmd: "docker rm -f {{ radarr_verify_control_container }}"
+          changed_when: true
 
-    - name: Show the Radarr verification summary
-      ansible.builtin.debug:
-        msg:
-          - "Radarr systemd: {{ radarr_service.status.ActiveState }}"
-          - "Radarr version: {{ radarr_status.json.version }}"
-          - "Radarr listening on: {{ radarr_listening_ports | join(', ') }} (configured: {{ radarr_container_http_port }})"
-          - "Radarr instance name: {{ radarr_status.json.instanceName }}"
-          - "Radarr database: {{ radarr_status.json.databaseType }} at migration {{ radarr_status.json.migrationVersion }}, under {{ radarr_verify_data_path }}"
+        - name: Show the Radarr verification summary
+          ansible.builtin.debug:
+            msg:
+              - "Radarr systemd: {{ radarr_service.status.ActiveState }}"
+              - "Radarr version: {{ radarr_status.json.version }}"
+              - "Radarr listening on: {{ radarr_listening_ports | join(', ') }} (configured: {{ radarr_container_http_port }})"
+              - "Radarr instance name: {{ radarr_status.json.instanceName }}"
+              - "Radarr database: {{ radarr_status.json.databaseType }} at migration {{ radarr_status.json.migrationVersion }}, under {{ radarr_verify_data_path }}"
 
       rescue:
         # Whatever went wrong, the reason is almost always in the systemd service log.
