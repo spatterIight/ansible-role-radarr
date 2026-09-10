@@ -10,10 +10,9 @@
   gather_facts: false
 
   vars:
-    # The role's identifier is also the directory it installs into. These are
+    # These are
     # role defaults, but Jinja-derived ones, and a verify play cannot resolve
     # those out of defaults/main.yml - so they are spelled out here.
-    radarr_verify_identifier: radarr
     radarr_verify_base_path: /radarr
     radarr_verify_data_path: /radarr/data
 
@@ -50,7 +49,7 @@
 
     - name: Inspect Radarr container
       ansible.builtin.command:
-        cmd: "docker container inspect {{ radarr_verify_identifier }}"
+        cmd: docker container inspect radarr
       register: radarr_container_raw
       changed_when: false
 
@@ -90,7 +89,7 @@
 
     - name: Wait for the Radarr systemd service to become active (up to 180s)
       ansible.builtin.systemd_service:
-        name: "{{ radarr_verify_identifier }}.service"
+        name: radarr.service
       register: radarr_service
       until: radarr_service.status.ActiveState == 'active'
       retries: 36
@@ -105,13 +104,13 @@
     - name: Assert the Radarr systemd service is active
       ansible.builtin.assert:
         that: radarr_service.status.ActiveState == 'active'
-        fail_msg: "{{ radarr_verify_identifier }}.service is not active ({{ radarr_service.status.ActiveState }})"
-        success_msg: "{{ radarr_verify_identifier }}.service is active"
+        fail_msg: "radarr.service is not active ({{ radarr_service.status.ActiveState }})"
+        success_msg: "radarr.service is active"
 
     - name: Retrieve the Radarr systemd service log for debugging
       when: radarr_debug_service_enabled | bool
       ansible.builtin.command:
-        cmd: "journalctl --no-pager --output-cat --unit={{ radarr_verify_identifier }}.service"
+        cmd: journalctl --no-pager --output-cat --unit=radarr.service
       changed_when: false
 
     # A published Docker port with nothing listening behind it resets the
@@ -156,7 +155,7 @@
     # still say 17878 while the process sat on 7878.
     - name: Read the ports Radarr listens on
       ansible.builtin.command:
-        cmd: "docker exec {{ radarr_verify_identifier }} netstat -lnt"
+        cmd: docker exec radarr netstat -lnt
       register: radarr_listening_raw
       changed_when: false
 
@@ -181,7 +180,7 @@
     # timezone.
     - name: Read the timezone offset inside the Radarr container
       ansible.builtin.command:
-        cmd: "docker exec {{ radarr_verify_identifier }} date +%z"
+        cmd: docker exec radarr date +%z
       register: radarr_timezone_offset
       changed_when: false
 
@@ -202,7 +201,7 @@
     # its database as it anyway.
     - name: Read the user Radarr runs as
       ansible.builtin.command:
-        cmd: "docker exec {{ radarr_verify_identifier }} id -u"
+        cmd: docker exec radarr id -u
       register: radarr_container_uid
       changed_when: false
 
@@ -232,7 +231,7 @@
     - name: Read the additional volume from inside the Radarr container
       ansible.builtin.command:
         cmd: >-
-          docker exec {{ radarr_verify_identifier }}
+          docker exec radarr
           cat {{ radarr_molecule_extra_volume_dst }}/marker.txt
       register: radarr_extra_volume
       changed_when: false
@@ -273,11 +272,11 @@
       vars:
         radarr_labels_content: "{{ radarr_labels_file.content | b64decode }}"
         radarr_verify_expected_port_label: >-
-          traefik.http.services.{{ radarr_verify_identifier }}.loadbalancer.server.port={{ radarr_container_http_port }}
+          traefik.http.services.radarr.loadbalancer.server.port={{ radarr_container_http_port }}
         radarr_verify_expected_strip_prefix_label: >-
-          traefik.http.middlewares.{{ radarr_verify_identifier }}-strip-prefix.stripprefix.prefixes={{ radarr_path_prefix }}
+          traefik.http.middlewares.radarr-strip-prefix.stripprefix.prefixes={{ radarr_path_prefix }}
         radarr_verify_expected_router_rule: >-
-          traefik.http.routers.{{ radarr_verify_identifier }}.rule=Host(`{{ radarr_hostname }}`) &&
+          traefik.http.routers.radarr.rule=Host(`{{ radarr_hostname }}`) &&
           PathPrefix(`{{ radarr_path_prefix }}`)
 
     # ------------------------------------------------------------------
