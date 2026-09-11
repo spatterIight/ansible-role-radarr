@@ -38,6 +38,9 @@
     # search that discriminates, rather than a call returning whatever exists.
     radarr_verify_absent_tag_label: molecule-never-created-tag
 
+    radarr_verify_units:
+      - radarr.service
+
   tasks:
     - name: Verify that Radarr works
       block:
@@ -89,13 +92,14 @@
         # The service the role installed
         # ------------------------------------------------------------------
 
-        - name: Wait for the Radarr systemd service to become active (up to 180s)
+        - name: Wait for the Radarr systemd services to become active (up to 180s each)
           ansible.builtin.systemd_service:
-            name: radarr.service
-          register: radarr_service
-          until: radarr_service.status.ActiveState == 'active'
+            name: "{{ item }}"
+          register: radarr_services
+          until: radarr_services.status.ActiveState == 'active'
           retries: 36
           delay: 5
+          loop: "{{ radarr_verify_units }}"
           # So that giving up is reported by the assertion below rather than as a
           # wall of systemd unit properties.
           failed_when: false
@@ -103,17 +107,20 @@
         # `Restart=always` in the systemd unit means that even a container which crashes
         # and gets restarted reads as active here, so this is a precondition rather than
         # a result.
-        - name: Assert the Radarr systemd service is active
+        - name: Assert the Radarr systemd services are active
           ansible.builtin.assert:
-            that: radarr_service.status.ActiveState == 'active'
-            fail_msg: "radarr.service is not active ({{ radarr_service.status.ActiveState }})"
-            success_msg: "radarr.service is active"
+            that: radarr_services.results | map(attribute='status.ActiveState') | unique | list == ['active']
+            fail_msg: >-
+              Not every service is active:
+              {{ dict(radarr_verify_units | zip(radarr_services.results | map(attribute='status.ActiveState'))) }}
+            success_msg: "Every systemd service is active"
 
-        - name: Retrieve the Radarr systemd service log for debugging
+        - name: Retrieve the Radarr systemd services log for debugging
           when: radarr_debug_service_enabled | bool
           ansible.builtin.command:
-            cmd: journalctl --no-pager --output-cat --unit=radarr.service
+            cmd: "journalctl --no-pager --output=cat --unit={{ item }}"
           changed_when: false
+          loop: "{{ radarr_verify_units }}"
 
         # A published Docker port with nothing listening behind it resets the
         # connection rather than refusing it, which `uri` reports as status -1, and
@@ -486,7 +493,7 @@
         - name: Show the Radarr verification summary
           ansible.builtin.debug:
             msg:
-              - "Radarr systemd: {{ radarr_service.status.ActiveState }}"
+              - "Radarr systemd: {% for unit, state in radarr_verify_units | zip(radarr_services.results | map(attribute='status.ActiveState')) %}{{ unit }} ({{ state }}){% if not loop.last %}, {% endif %}{% endfor %}"
               - "Radarr version: {{ radarr_status.json.version }}"
               - "Radarr listening on: {{ radarr_listening_ports | join(', ') }} (configured: {{ radarr_container_http_port }})"
               - "Radarr instance name: {{ radarr_status.json.instanceName }}"
