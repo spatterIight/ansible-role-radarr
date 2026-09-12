@@ -127,29 +127,27 @@
         # Radarr needs a while to migrate its database before it serves anything.
         # The loop has to survive both, so failures are tolerated here and judged
         # after.
-        - name: Wait for Radarr to answer on the port the role configured
+        - name: Wait for Radarr to report itself healthy (up to 180s)
           ansible.builtin.uri:
             url: "{{ radarr_verify_url }}/ping"
             method: GET
             follow_redirects: none
-          register: radarr_ping
-          until: radarr_ping.status == 200
-          retries: 120
+          register: radarr_health
+          until: radarr_health.status == 200 and (radarr_health.json | default({})).get('status', '') == 'OK'
+          retries: 36
           delay: 5
+          # So that giving up is reported by the assertion below rather than as a
+          # wall of systemd unit properties.
           failed_when: false
 
         # `/ping` is Radarr's own health check and it opens the SQLite database to
         # answer, so unlike the single-page app it cannot answer while Radarr is
         # broken.
-        - name: Assert Radarr answers on the port the role configured
+        - name: Assert Radarr reports itself healthy
           ansible.builtin.assert:
-            that:
-              - radarr_ping.status == 200
-              - (radarr_ping.json | default({})).get('status', '') == 'OK'
-            fail_msg: >-
-              Radarr did not answer on {{ radarr_verify_url }}/ping
-              (status {{ radarr_ping.status | default('none') }})
-            success_msg: "Radarr answers on {{ radarr_verify_url }}/ping"
+            that: (radarr_health.json | default({})).get('status', '') == 'OK'
+            fail_msg: "Radarr did not report itself healthy: {{ radarr_health.status | default('no response') }}"
+            success_msg: "Radarr reports itself healthy"
 
         # ------------------------------------------------------------------
         # Does the role's configuration reach the process?
