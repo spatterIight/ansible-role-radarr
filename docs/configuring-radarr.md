@@ -70,6 +70,32 @@ radarr_container_additional_volumes:
     dst: /downloads
 ```
 
+### Configuring trusted networks
+
+Radarr only trusts forwarded headers from loopback addresses by default. For Traefik to pass the original client address and HTTPS scheme to Radarr, it is necessary to configure **Trusted Networks** with the proxy's address or network. Refer to [Radarr's security settings](https://wiki.servarr.com/radarr/settings#security) for details.
+
+First, inspect the Docker network shared by Traefik and Radarr on the server:
+
+```sh
+docker network inspect NETWORK_NAME --format '{{ range .IPAM.Config }}{{ println .Subnet }}{{ end }}'
+```
+
+Replace `NETWORK_NAME` with that network's actual name. Keep in mind that only the proxy's address or the specific subnet it connects from should be trusted. Trusting a subnet also trusts other containers attached to it. For an external proxy, use its source address or subnet as seen by Radarr.
+
+You can configure **Settings → General → Security → Trusted Networks** in Radarr. To apply the setting with an environment variable, add the following configuration to your `vars.yml` file (adapt to your needs):
+
+```yaml
+# This is an example. Replace the value with the actual proxy subnet.
+radarr_environment_variables_additional_variables: |
+  RADARR__SERVER__TRUSTEDNETWORKS=172.20.0.0/24
+```
+
+You can specify multiple addresses or subnets by comma-separating them. This environment setting takes precedence over the value saved in Radarr's configuration.
+
+It is recommended to keep authentication required for all addresses, especially when using a reverse proxy. If you configure **Allowed Hosts**, make sure to include `radarr_hostname` and any additional names used by API clients; an empty list currently accepts all hostnames.
+
+After upgrading, make sure to verify login and API access through the public HTTPS URL, and check Radarr's logs for the configured trusted network and any rejected hosts.
+
 ### Extending the configuration
 
 There are some additional things you may wish to configure about the service.
