@@ -80,8 +80,7 @@ Take a look at:
 
 ### Notes on configuration
 
-- `radarr_container_http_port` describes the container image rather than configuring it. Radarr reads its listening port from the `ServerConfig.json` file it maintains on its own data path, and the container's readiness check is hardcoded to port 9117, so a container listening anywhere else would never come up.
-- Radarr mints an API key on first start and keeps it, in plain text, in `ServerConfig.json` under the role's data path (`/radarr/data/Radarr/ServerConfig.json` by default). Radarr writes that file with mode `0644`; what keeps it private is the `0750` directory the role creates around it, owned by `radarr_uid`:`radarr_gid`. Anything you give that uid or gid to on the host can read the key, and the key is enough to drive the whole Radarr API.
+A freshly installed Radarr has no authentication of its own, and this role does not add any. Radarr also serves its API key to unauthenticated callers on `/initialize.json`, and that key is enough to drive the whole API. It is recommended to turn authentication on under *Settings -> General -> Security* in Radarr itself, or put a middleware in front of it through `radarr_container_labels_additional_labels`, before making an installation reachable from the internet.
 
 ## Installing
 
