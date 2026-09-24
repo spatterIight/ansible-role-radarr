@@ -18,11 +18,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Setting up Radarr
 
-This is an [Ansible](https://www.ansible.com/) role which installs [Radarr](https://github.com/Radarr/Radarr) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
+This is an [Ansible](https://www.ansible.com/) role which installs [Radarr](https://radarr.video/) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
 
-Radarr is an API for your favorite Torrent trackers. It translates queries from apps ([Sonarr](https://github.com/Sonarr/Sonarr), [Radarr](https://github.com/Radarr/Radarr), etc.) into tracker-site-specific HTTP queries, parses the HTML or JSON response, and then sends results back to the requesting software.
+Radarr is a movie organizer/manager for Usenet and BitTorrent users.
 
-See the project's [documentation](https://github.com/Radarr/Radarr/blob/master/README.md) to learn what Radarr does and why it might be useful to you.
+See the project's [documentation](https://wiki.servarr.com/radarr) to learn what Radarr does and why it might be useful to you.
 
 ## Adjusting the playbook configuration
 
@@ -64,7 +64,7 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 To mount additional data directories, add the following configuration to your `vars.yml` file (adapt to your needs):
 
 ```yaml
-radarr_container_additional_volumes_custom:
+radarr_container_additional_volumes:
   - type: bind
     src: /path/to/blackhole
     dst: /downloads
@@ -77,63 +77,6 @@ There are some additional things you may wish to configure about the service.
 Take a look at:
 
 - [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `radarr_environment_variables_additional_variables` variable
-
-#### Command-line arguments
-
-Additional command line arguments can be passed to Radarr by use of the `RUN_OPTS` environment variable. To specify this, add the following to your `vars.yml` file:
-
-```yaml
-radarr_environment_variables_additional_variables: |
-  RUN_OPTS="--IgnoreSslErrors true --ProxyConnection 192.168.10.3:9999"
-```
-
-The full list of available arguments is as follows:
-
-```sh
-Radarr v0.22.1377
-  -i, --Install            Install Radarr windows service (Must be admin)
-
-  -r, --ReserveUrls        (Re)Register windows port reservations (Required for
-                           listening on all interfaces).
-
-  -u, --Uninstall          Uninstall Radarr windows service (Must be admin).
-
-  -l, --Logging            Log all requests/responses to Radarr
-
-  -t, --Tracing            Enable tracing
-
-  -c, --UseClient          Override web client selection.
-                           [automatic(Default)/httpclient/httpclient2]
-
-  -s, --Start              Start the Jacket Windows service (Must be admin)
-
-  -k, --Stop               Stop the Jacket Windows service (Must be admin)
-
-  -x, --ListenPublic       Listen publicly
-
-  -z, --ListenPrivate      Only allow local access
-
-  -p, --Port               Web server port
-
-  -n, --IgnoreSslErrors    [true/false] Ignores invalid SSL certificates
-
-  -d, --DataFolder         Specify the location of the data folder (Must be
-                           admin on Windows) eg. --DataFolder="D:\Your
-                           Data\Radarr\". Don't use this on Unix (mono)
-                           systems. On Unix just adjust the HOME directory of
-                           the user to the datadir or set the XDG_CONFIG_HOME
-                           environment variable.
-
-  --NoRestart              Don't restart after update
-
-  --PIDFile                Specify the location of PID file
-
-  --NoUpdates              Disable automatic updates
-
-  --help                   Display this help screen.
-
-  --version                Display version information.
-```
 
 ### Notes on configuration
 
@@ -154,36 +97,7 @@ If you use the MASH playbook, the shortcut commands with the [`just` program](ht
 
 After running the command for installation, Radarr becomes available at the specified hostname like `https://example.com`.
 
-### Adding an Indexer
-
-Once you've installed Radarr and setup an admin password you can start configuring it. One of the first things you're likely to want to do is configure some indexers. An indexer is basically a tracker, which can be either public, semi-private, or private.
-
-To add an indexer, click the `+ Add indexer` button and select your tracker from the list.
-
-![Radarr Add Indexer](./assets/radarr-add-indexer.webp)
-
-If its a semi-private or private tracker you will have to add some specific configuration, like a username and password. If its public you can just add it as-is.
-
-Once its added you can test it using the `Test ✓` button, if it returns successfully you're good to go!
-
-### Integration with Sonarr/Radarr
-
-To add Radarr to your [Sonarr](https://sonarr.tv/) or [Radarr](https://radarr.video/) instance navigate to the form at `Settings > Indexers > Add > Torznab > Custom`:
-
-![Sonarr Add Indexer](./assets/sonarr-add-indexer.webp)
-
-Next copy Radarr's `API Key` from in the top right of the Radarr dashboard:
-
-![Radarr API Key](./assets/radarr-api-key.webp)
-
-Paste this into the Sonarr/Radarr form, under `API Key`.
-
-Next, click `Copy Torznab Feed` of the indexer (tracker) you added to Radarr. Paste this into the Sonarr/Radarr form too, under `URL`.
-
-Fill in the rest of the form with your preferences, and you're done!
-
->[!NOTE]
-> If you are looking for an Ansible role for Sonarr and Radarr, you can check out [ansible-role-sonarr](https://github.com/spatterIight/ansible-role-sonarr) and [ansible-role-radarr](https://github.com/spatterIight/ansible-role-radarr), both of which are maintained by me.
+To get started, open the URL with a web browser to create an account. The recommended authentication method is `Forms (Login Page)`.
 
 ## Troubleshooting
 
