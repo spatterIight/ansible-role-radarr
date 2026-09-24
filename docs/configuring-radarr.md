@@ -78,6 +78,8 @@ Take a look at:
 
 - [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `radarr_environment_variables_additional_variables` variable
 
+Refer to [this page](https://wiki.servarr.com/radarr/environment-variables) for available options which can be set to `radarr_environment_variables_additional_variables`.
+
 ### Notes on configuration
 
 A freshly installed Radarr has no authentication of its own, and this role does not add any. Radarr also serves its API key to unauthenticated callers on `/initialize.json`, and that key is enough to drive the whole API. It is recommended to turn authentication on under *Settings -> General -> Security* in Radarr itself, or put a middleware in front of it through `radarr_container_labels_additional_labels`, before making an installation reachable from the internet.
