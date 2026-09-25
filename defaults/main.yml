@@ -16,7 +16,7 @@ radarr_identifier: radarr
 radarr_base_path: "/{{ radarr_identifier }}"
 radarr_data_path: "{{ radarr_base_path }}/data"
 
-# renovate: datasource=docker depName=lscr.io/linuxserver/radarr versioning=semver
+# renovate: datasource=docker depName=ghcr.io/linuxserver/radarr versioning=semver
 radarr_version: 6.4.4
 radarr_arch: amd64
 
@@ -34,7 +34,7 @@ radarr_container_image: "{{ radarr_container_image_registry_prefix }}linuxserver
 radarr_container_image_tag: "{{ radarr_version }}"
 radarr_container_image_registry_prefix: "{{ radarr_container_image_registry_prefix_upstream }}"
 radarr_container_image_registry_prefix_upstream: "{{ radarr_container_image_registry_prefix_upstream_default }}"
-radarr_container_image_registry_prefix_upstream_default: lscr.io/
+radarr_container_image_registry_prefix_upstream_default: ghcr.io/
 
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.

@@ -49,6 +49,10 @@ Currently there is one testing scenario available.
 
 Tests a standard Radarr installation.
 
+The scenario deliberately configures nothing the way Radarr would configure itself, so that every assertion is attributable to the role: a port that is not Radarr's built-in `7878`, a timezone whose offset no other timezone shares, a fixed API key and instance name, a uid the test image does not carry, and an additional volume whose marker file is read back from inside the container. It then asserts that the running Radarr reports the version [`defaults/main.yml`](../defaults/main.yml) pins, and creates a tag through the API which it reads back out of the SQLite database on the host side of the bind mount.
+
+It also starts a second, completely unconfigured container from the same image as a negative control. That one answers `200` on `/`, on `/login` and on any path that does not exist, replies to `/ping`, and hands out its own API key on `/initialize.json` — which is why none of the assertions above gate on a status code alone.
+
 ## Running
 
 By default it is configured to run the scenarios on Ubuntu 26.04.

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -17,12 +18,36 @@
     - name: Ensure required packages are installed for Radarr Molecule tests preparation
       ansible.builtin.package:
         name:
+          # Used by the `ansible.builtin.uri` calls in verify.yml
           - python3-requests
+          # The storage driver the inner Docker daemon is configured with below.
+          # `overlay2` cannot be nested inside the container Molecule runs these
+          # tests in, and `vfs` (the usual fallback) has no copy-on-write, so it
+          # writes out every layer of the image in full.
+          - fuse-overlayfs
         state: present
+
+    # Bind-mounted into the Radarr container through
+    # `radarr_container_additional_volumes`. The role does not create the source
+    # of an additional volume, so it has to exist before the container is
+    # created, or `docker create` refuses the bind. verify.yml reads the marker
+    # file back from inside the container, which only works if the systemd unit
+    # really carries the additional volumes.
+    - name: Ensure the additional volume directory exists for Radarr Molecule tests
+      ansible.builtin.file:
+        path: "{{ radarr_molecule_extra_volume_src }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure the additional volume marker file exists for Radarr Molecule tests
+      ansible.builtin.copy:
+        content: "{{ radarr_molecule_extra_volume_marker }}\n"
+        dest: "{{ radarr_molecule_extra_volume_src }}/marker.txt"
+        mode: "0644"
 
     - name: Ensure Docker is installed for Radarr Molecule tests preparation
       ansible.builtin.include_role:
         name: ansible-role-docker
       vars:
         docker_daemon_options:
-          storage-driver: vfs
+          storage-driver: fuse-overlayfs
