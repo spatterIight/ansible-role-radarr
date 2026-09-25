@@ -16,8 +16,8 @@
     radarr_verify_base_path: /radarr
     radarr_verify_data_path: /radarr/data
 
-    radarr_verify_url: "http://127.0.0.1:{{ radarr_container_http_port }}"
-    radarr_verify_api_url: "http://127.0.0.1:{{ radarr_container_http_port }}/api/v3"
+    radarr_verify_url: "http://127.0.0.1:17878"
+    radarr_verify_api_url: "http://127.0.0.1:17878/api/v3"
     radarr_verify_headers:
       X-Api-Key: "{{ radarr_molecule_api_key }}"
 
@@ -37,6 +37,17 @@
     # Nobody ever creates this one. Asking for it proves the read-back is a
     # search that discriminates, rather than a call returning whatever exists.
     radarr_verify_absent_tag_label: molecule-never-created-tag
+
+    # The unusual values the scenario configures the role with. Written down
+    # here rather than read back out of the inventory, so that a verify run
+    # compares the running container against something stated, not against
+    # whatever the scenario happens to say at the time.
+    radarr_expected_uid: 1873
+    radarr_expected_gid: 1873
+    radarr_expected_hostname: radarr.molecule.local
+    radarr_expected_path_prefix: /radarr-ui
+    radarr_expected_timezone: Asia/Tokyo
+    radarr_expected_timezone_abbreviation: JST
 
     radarr_verify_units:
       - radarr.service
@@ -89,7 +100,7 @@
           changed_when: true
 
         # ------------------------------------------------------------------
-        # The service the role installed
+        # The systemd unit
         # ------------------------------------------------------------------
 
         - name: Wait for the Radarr systemd services to become active (up to 180s each)
@@ -150,87 +161,8 @@
             success_msg: "Radarr reports itself healthy"
 
         # ------------------------------------------------------------------
-        # Does the role's configuration reach the process?
+        # The bind mounts
         # ------------------------------------------------------------------
-
-        # Radarr keeps its port in the config.xml it maintains for itself under
-        # `radarr_data_path`, which this role does not template. Only the
-        # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
-        # a Radarr listening anywhere other than 7878 is the role's doing. The
-        # absence of 7878 matters as much as the presence of the configured port:
-        # were the override dropped, the published port and the Traefik label would
-        # still say 17878 while the process sat on 7878.
-        - name: Read the ports Radarr listens on
-          ansible.builtin.command:
-            cmd: docker exec radarr netstat -lnt
-          register: radarr_listening_raw
-          changed_when: false
-
-        - name: Make sense of the ports Radarr listens on
-          ansible.builtin.set_fact:
-            radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
-
-        - name: Assert Radarr listens on the port the role configured and not on its own default
-          ansible.builtin.assert:
-            that:
-              - radarr_container_http_port | string in radarr_listening_ports
-              - "'7878' not in radarr_listening_ports"
-            fail_msg: >-
-              Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
-              {{ radarr_container_http_port }}, so radarr_container_http_port does not reach the process
-            success_msg: >-
-              Radarr listens on {{ radarr_container_http_port }} and not on its built-in 7878,
-              so radarr_container_http_port reaches the process
-
-        # `radarr_timezone` is the only thing that can move the container's clock
-        # off UTC, and Pacific/Chatham's quarter-hour offset is shared with no other
-        # timezone.
-        - name: Read the timezone offset inside the Radarr container
-          ansible.builtin.command:
-            cmd: docker exec radarr date +%z
-          register: radarr_timezone_offset
-          changed_when: false
-
-        - name: Assert the Radarr container runs in the configured timezone
-          ansible.builtin.assert:
-            # +12:45 in standard time, +13:45 in daylight saving time.
-            that: radarr_timezone_offset.stdout | trim in ['+1245', '+1345']
-            fail_msg: >-
-              The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }}, not at the
-              offset of {{ radarr_timezone }}, so radarr_timezone does not reach the process
-            success_msg: >-
-              The Radarr container's clock is at {{ radarr_timezone_offset.stdout | trim }},
-              the offset of {{ radarr_timezone }}
-
-        # The linuxserver.io PUID/PGID pattern has left a needed directory
-        # unwritable in other roles of this fleet, so the uid here is deliberately
-        # not one the test image already carries - and Radarr has to have written
-        # its database as it anyway.
-        - name: Read the user Radarr runs as
-          ansible.builtin.command:
-            cmd: docker exec radarr id -u
-          register: radarr_container_uid
-          changed_when: false
-
-        - name: Read the ownership of the Radarr database
-          ansible.builtin.stat:
-            path: "{{ radarr_verify_data_path }}/radarr.db"
-          register: radarr_database_stat
-
-        - name: Assert Radarr runs as the configured user and owns its data
-          ansible.builtin.assert:
-            that:
-              - radarr_container_uid.stdout | trim | int == radarr_uid | int
-              - radarr_database_stat.stat.exists
-              - radarr_database_stat.stat.uid | int == radarr_uid | int
-              - radarr_database_stat.stat.gid | int == radarr_gid | int
-            fail_msg: >-
-              Radarr runs as uid {{ radarr_container_uid.stdout | trim }} and
-              {{ radarr_verify_data_path }}/radarr.db belongs to
-              {{ radarr_database_stat.stat.uid | default('nobody') }}:{{ radarr_database_stat.stat.gid | default('nobody') }},
-              not to the configured {{ radarr_uid }}:{{ radarr_gid }}
-            success_msg: >-
-              Radarr runs as uid {{ radarr_uid }} and owns {{ radarr_verify_data_path }}/radarr.db
 
         # `radarr_container_additional_volumes` has been declared but never rendered
         # in other roles of this fleet. Reading the file back from inside the
@@ -257,37 +189,119 @@
               {{ radarr_molecule_extra_volume_src }} is mounted at
               {{ radarr_molecule_extra_volume_dst }} inside the container
 
-        - name: Read the Radarr container label file the role rendered
-          ansible.builtin.slurp:
-            src: "{{ radarr_verify_base_path }}/labels"
-          register: radarr_labels_file
+        # ------------------------------------------------------------------
+        # What `docker create` was actually told
+        # ------------------------------------------------------------------
 
-        # No Traefik runs here, so these labels are checked as text. The port in
-        # them is the one that matters: a Traefik routing to a port Radarr is not
-        # listening on is exactly the failure the env file override prevents.
-        - name: Assert the Traefik labels agree with the port Radarr listens on
+        # Radarr keeps its port in the config.xml it maintains for itself under
+        # `radarr_data_path`, which this role does not template. Only the
+        # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
+        # a Radarr listening anywhere other than 7878 is the role's doing. The
+        # absence of 7878 matters as much as the presence of the configured port:
+        # were the override dropped, the published port and the Traefik label would
+        # still say 17878 while the process sat on 7878.
+        - name: Read the ports Radarr listens on
+          ansible.builtin.command:
+            cmd: docker exec radarr netstat -lnt
+          register: radarr_listening_raw
+          changed_when: false
+
+        - name: Make sense of the ports Radarr listens on
+          ansible.builtin.set_fact:
+            radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
+
+        - name: Assert Radarr listens on the port the role configured and not on its own default
           ansible.builtin.assert:
             that:
-              - radarr_verify_expected_port_label in radarr_labels_content
-              - radarr_verify_expected_strip_prefix_label in radarr_labels_content
-              - radarr_verify_expected_router_rule in radarr_labels_content
+              - radarr_container_http_port | string in radarr_listening_ports
+              - "'7878' not in radarr_listening_ports"
             fail_msg: >-
-              The rendered label file does not route {{ radarr_path_prefix }} to
-              {{ radarr_container_http_port }}: {{ radarr_labels_content }}
+              Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
+              17878, so radarr_container_http_port does not reach the process
             success_msg: >-
-              The rendered label file routes {{ radarr_path_prefix }} to {{ radarr_container_http_port }}
-          vars:
-            radarr_labels_content: "{{ radarr_labels_file.content | b64decode }}"
-            radarr_verify_expected_port_label: >-
-              traefik.http.services.radarr.loadbalancer.server.port={{ radarr_container_http_port }}
-            radarr_verify_expected_strip_prefix_label: >-
-              traefik.http.middlewares.radarr-strip-prefix.stripprefix.prefixes={{ radarr_path_prefix }}
-            radarr_verify_expected_router_rule: >-
-              traefik.http.routers.radarr.rule=Host(`{{ radarr_hostname }}`) &&
-              PathPrefix(`{{ radarr_path_prefix }}`)
+              Radarr listens on 17878 and not on its built-in 7878,
+              so radarr_container_http_port reaches the process
+
+        - name: Assert that the role's uid and gid reached the container
+          ansible.builtin.assert:
+            that:
+              - radarr_container.Config.User == (radarr_expected_uid | string) ~ ':' ~ (radarr_expected_gid | string)
+              - ('PUID=' ~ radarr_expected_uid) in radarr_container.Config.Env
+              - ('PGID=' ~ radarr_expected_gid) in radarr_container.Config.Env
+            fail_msg: >-
+              The container runs as {{ radarr_container.Config.User }}
+              with {{ radarr_container.Config.Env | select('match', 'P[UG]ID=') | list }}
+            success_msg: "The container runs as {{ radarr_container.Config.User }} and carries the matching PUID/PGID"
+
+        - name: Assert that the role's timezone reached the container environment
+          ansible.builtin.assert:
+            that:
+              - ('TZ=' ~ radarr_expected_timezone) in radarr_container.Config.Env
+            fail_msg: "templates/env.j2 did not put TZ={{ radarr_expected_timezone }} on the container"
+            success_msg: "The container environment carries TZ={{ radarr_expected_timezone }}"
+
+        - name: Assert that the container image is the pinned version
+          ansible.builtin.assert:
+            that:
+              - radarr_container.Config.Image == 'ghcr.io/linuxserver/radarr:' ~ radarr_defaults.radarr_version
+            fail_msg: >-
+              The container runs {{ radarr_container.Config.Image }}, not the
+              {{ radarr_defaults.radarr_version }} pinned in defaults/main.yml
+            success_msg: "The container runs {{ radarr_container.Config.Image }}"
+
+        # linuxserver.io stamps its own build onto the image as
+        # `<Radarr version>-ls<rebuild counter>`.
+        #
+        # `radarr_version` pins a three-component linuxserver.io tag (`6.3.0`) while
+        # Radarr's own version has four components (`6.3.0.10514`) and the image
+        # label carries the rebuild counter on top (`6.3.0.10514-ls314`), so the pin
+        # is compared as a prefix - with the trailing dot,
+        - name: Assert the running Radarr is the version this role installs
+          ansible.builtin.assert:
+            that: radarr_container.Config.Labels['org.opencontainers.image.version'].startswith(radarr_defaults.radarr_version)
+            fail_msg: "Radarr reports {{ radarr_container.Config.Labels['org.opencontainers.image.version'] | default('none') }}, expected {{ radarr_defaults.radarr_version }}"
+            success_msg: "Radarr reports {{ radarr_container.Config.Labels['org.opencontainers.image.version'] }}"
 
         # ------------------------------------------------------------------
-        # The running version, which is what earns or denies automerge
+        # Traefik labels
+        # ------------------------------------------------------------------
+
+        - name: Assert that the Traefik labels describe the configured hostname and path prefix
+          ansible.builtin.assert:
+            that:
+              - radarr_container.Config.Labels['traefik.enable'] == 'true'
+              - radarr_container.Config.Labels['traefik.http.routers.radarr.rule'] == 'Host(`' ~ radarr_expected_hostname ~ '`) && PathPrefix(`' ~ radarr_expected_path_prefix ~ '`)'
+              - radarr_container.Config.Labels['traefik.http.middlewares.radarr-strip-prefix.stripprefix.prefixes'] == radarr_expected_path_prefix
+              - radarr_container.Config.Labels['traefik.http.services.radarr.loadbalancer.server.port'] == '17878'
+            fail_msg: "The Traefik labels are not what templates/labels.j2 should have produced: {{ radarr_container.Config.Labels }}"
+            success_msg: "The Traefik labels route {{ radarr_expected_hostname }}{{ radarr_expected_path_prefix }} to port 17878"
+
+        # ------------------------------------------------------------------
+        # What the process inside the container actually sees
+        # ------------------------------------------------------------------
+
+        - name: Ask the Radarr container which timezone and user it is running in
+          ansible.builtin.command:
+            cmd: docker exec radarr sh -c 'date +%Z; id -u; id -g'
+          register: radarr_process_identity
+          changed_when: false
+
+        - name: Assert that the Radarr process runs in the role's timezone, as the role's user
+          ansible.builtin.assert:
+            that:
+              - radarr_process_identity.stdout_lines[0] == radarr_expected_timezone_abbreviation
+              - radarr_process_identity.stdout_lines[1] == radarr_expected_uid | string
+              - radarr_process_identity.stdout_lines[2] == radarr_expected_gid | string
+            fail_msg: >-
+              The container reports zone/uid/gid {{ radarr_process_identity.stdout_lines }},
+              expected [{{ radarr_expected_timezone_abbreviation }},
+              {{ radarr_expected_uid }}, {{ radarr_expected_gid }}]
+            success_msg: >-
+              The Radarr process runs in {{ radarr_process_identity.stdout_lines[0] }}
+              as {{ radarr_process_identity.stdout_lines[1] }}:{{ radarr_process_identity.stdout_lines[2] }}
+
+        # ------------------------------------------------------------------
+        # Verify environment variables reach Radarr
         # ------------------------------------------------------------------
 
         - name: Read the Radarr system status
@@ -298,24 +312,6 @@
             follow_redirects: none
           register: radarr_status
           changed_when: false
-
-        # `radarr_version` pins a three-component linuxserver.io tag (`6.3.0`) while
-        # Radarr's own version has four components (`6.3.0.10514`) and the image
-        # label carries the rebuild counter on top (`6.3.0.10514-ls314`), so the pin
-        # is compared as a prefix - with the trailing dot, or `6.3.0` would also
-        # accept a `6.3.01` that does not exist yet but could.
-        - name: Assert the running Radarr is the version this role installs
-          ansible.builtin.assert:
-            that:
-              - radarr_status.json.version is string
-              - radarr_status.json.version.startswith(radarr_verify_pinned_version ~ '.')
-              - radarr_status.json.packageVersion.startswith(radarr_verify_pinned_version ~ '.')
-              - radarr_verify_image_label.startswith(radarr_verify_pinned_version ~ '.')
-            fail_msg: "Radarr reports {{ radarr_status.json.version | default('none') }}, expected {{ radarr_defaults.radarr_version }}"
-            success_msg: "Radarr reports {{ radarr_status.json.version }}"
-          vars:
-            radarr_verify_pinned_version: "{{ radarr_defaults.radarr_version | string }}"
-            radarr_verify_image_label: "{{ radarr_container.Config.Labels['org.opencontainers.image.version'] }}"
 
         # The API key and the instance name both come from
         # `radarr_environment_variables_additional_variables`. Radarr generates a
@@ -404,7 +400,7 @@
             radarr_database_labels: "{{ radarr_database_tags.stdout | from_json }}"
 
         # ------------------------------------------------------------------
-        # What the negative control has to say
+        # # The negative control, which was started at the top of this play.
         # ------------------------------------------------------------------
 
         - name: Wait for the stock Radarr control container to come up
@@ -475,7 +471,7 @@
               - radarr_container_http_port | string not in radarr_control_ports
             fail_msg: >-
               The stock Radarr image accepted the role's API key or listens on
-              {{ radarr_container_http_port }} ({{ radarr_control_ports | join(', ') }}),
+              17878 ({{ radarr_control_ports | join(', ') }}),
               so neither is evidence that the role configured anything
             success_msg: >-
               The stock Radarr image rejects the role's API key and listens on its built-in 7878,
@@ -483,7 +479,7 @@
           vars:
             radarr_control_ports: "{{ radarr_control_listening.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
 
-        - name: Remove the stock Radarr control container
+        - name: Ensure the Radarr negative control container is removed
           ansible.builtin.command:
             cmd: "docker rm -f {{ radarr_verify_control_container }}"
           changed_when: true

@@ -58,15 +58,25 @@ provisioner:
         radarr_uid: 1873
         radarr_gid: 1873
 
-        radarr_hostname: localhost
-        radarr_path_prefix: /radarr
+        radarr_hostname: radarr.molecule.local
 
-        # Deliberately not Radarr's built-in 7878.
-        radarr_container_http_port: 17878
+        # A non-root path prefix exercises the strip-prefix and slashless
+        # redirect middlewares in templates/labels.j2.
+        radarr_path_prefix: /radarr-ui
+
+        # Neither the role's default of Etc/UTC nor the test host's zone, so
+        # that the timezone the container ends up in can only have come from
+        # templates/env.j2.
+        radarr_timezone: Asia/Tokyo
+
+        radarr_container_labels_traefik_enabled: true
+
+        # Bound to the loopback interface of the test container only. Nothing
+        # is published to the machine running Molecule, so two scenarios can
+        # run side by side without fighting over a port.
         radarr_container_http_bind_port: "127.0.0.1:17878"
 
-        # Deliberately not UTC, and an offset no other timezone shares.
-        radarr_timezone: Pacific/Chatham
+        radarr_container_http_port: 17878
 
         radarr_environment_variables_additional_variables: |
           RADARR__AUTH__APIKEY={{ radarr_molecule_api_key }}
@@ -77,11 +87,6 @@ provisioner:
             src: "{{ radarr_molecule_extra_volume_src }}"
             dst: "{{ radarr_molecule_extra_volume_dst }}"
             options: readonly
-
-        # No Traefik runs here, but the labels the role renders are what a
-        # Traefik would route by, and the port in them has to agree with the
-        # port Radarr was actually told to listen on.
-        radarr_container_labels_traefik_enabled: true
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
