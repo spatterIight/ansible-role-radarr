@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Version bumps of Radarr stay human-reviewed pull requests: a patch bump of this tag is a Radarr patch release, and Radarr applies forward-only SQLite migrations on startup whose `Down()` throws, which a fresh-install Molecule run structurally cannot see. What Molecule does gate is that the image the role pins boots, listens where the role told it to, and reports the pinned version back through its own API.",
   "extends": [
-    "github>mother-of-all-self-hosting/renovate-config#v1.0.0"
+    "github>mother-of-all-self-hosting/renovate-config#v1.1.0"
   ],
   "packageRules": [
     {
