@@ -35,6 +35,13 @@
 - name: Validate Radarr Traefik configuration
   when: radarr_container_labels_traefik_enabled | bool
   block:
+    - name: (Deprecation) Catch and report Radarr labels for Traefik in the old string format
+      ansible.builtin.fail:
+        msg: >-
+          `radarr_container_labels_additional_labels` now require a list of strings.
+          Replace `radarr_container_labels_additional_labels: |` with `radarr_container_labels_additional_labels_custom:` and make each label a list item.
+      when: "radarr_container_labels_additional_labels | default([]) is string"
+
     - name: Fail if required Radarr Traefik settings not defined
       ansible.builtin.fail:
         msg: >-

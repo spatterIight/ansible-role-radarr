@@ -67,7 +67,10 @@ radarr_container_additional_volumes: "{{ radarr_container_additional_volumes_aut
 radarr_container_additional_volumes_auto: []
 radarr_container_additional_volumes_custom: []
 
-# To inject your own other container labels, see `radarr_container_labels_additional_labels`.
+# radarr_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+#
+# To inject your own other container labels, see `radarr_container_labels_additional_labels_custom`.
 radarr_container_labels_traefik_enabled: true
 radarr_container_labels_traefik_docker_network: "{{ radarr_container_network }}"
 radarr_container_labels_traefik_hostname: "{{ radarr_hostname }}"
@@ -81,12 +84,15 @@ radarr_container_labels_traefik_tls_certResolver: default # noqa var-naming
 
 # radarr_container_labels_additional_labels contains a multiline string with additional labels to add to the container label file.
 # See `../templates/labels.j2` for details.
+# To add your own custom labels, use `radarr_container_labels_additional_labels_custom`
 #
 # Example:
-# radarr_container_labels_additional_labels: |
-#   my.label=1
-#   another.label="here"
-radarr_container_labels_additional_labels: ""
+# radarr_container_labels_additional_labels_custom:
+#   - my.label=1
+#   - another.label="here"
+radarr_container_labels_additional_labels: "{{ radarr_container_labels_additional_labels_auto + radarr_container_labels_additional_labels_custom }}"
+radarr_container_labels_additional_labels_auto: []
+radarr_container_labels_additional_labels_custom: []
 
 # A list of extra arguments to pass to the container (`docker create` command)
 radarr_container_extra_arguments: []
