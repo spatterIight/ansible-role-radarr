@@ -64,13 +64,6 @@ provisioner:
         # redirect middlewares in templates/labels.j2.
         radarr_path_prefix: /radarr-ui
 
-        # Neither the role's default of Etc/UTC nor the test host's zone, so
-        # that the timezone the container ends up in can only have come from
-        # templates/env.j2.
-        radarr_environment_variables_tz: Asia/Tokyo
-
-        radarr_container_labels_traefik_enabled: true
-
         # Bound to the loopback interface of the test container only. Nothing
         # is published to the machine running Molecule, so two scenarios can
         # run side by side without fighting over a port.
@@ -78,15 +71,22 @@ provisioner:
 
         radarr_container_http_port: 17878
 
-        radarr_environment_variables_additional_variables: |
-          RADARR__AUTH__APIKEY={{ radarr_molecule_api_key }}
-          RADARR__APP__INSTANCENAME={{ radarr_molecule_instance_name }}
-
         radarr_container_additional_volumes:
           - type: bind
             src: "{{ radarr_molecule_extra_volume_src }}"
             dst: "{{ radarr_molecule_extra_volume_dst }}"
             options: readonly
+
+        radarr_container_labels_traefik_enabled: true
+
+        # Neither the role's default of Etc/UTC nor the test host's zone, so
+        # that the timezone the container ends up in can only have come from
+        # templates/env.j2.
+        radarr_environment_variables_tz: Asia/Tokyo
+
+        radarr_environment_variables_additional_variables: |
+          RADARR__AUTH__APIKEY={{ radarr_molecule_api_key }}
+          RADARR__APP__INSTANCENAME={{ radarr_molecule_instance_name }}
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
