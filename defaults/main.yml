@@ -63,7 +63,9 @@ radarr_container_additional_networks_custom: []
 # if you wish to mount your own files into the container.
 # Contains definition objects like this: `{"type": "bind", "src": "/outside", "dst": "/inside", "options": "readonly"}.
 # See the `--mount` documentation for the `docker run` command.
-radarr_container_additional_volumes: []
+radarr_container_additional_volumes: "{{ radarr_container_additional_volumes_auto + radarr_container_additional_volumes_custom }}"
+radarr_container_additional_volumes_auto: []
+radarr_container_additional_volumes_custom: []
 
 # To inject your own other container labels, see `radarr_container_labels_additional_labels`.
 radarr_container_labels_traefik_enabled: true

@@ -64,7 +64,7 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 To mount additional data directories, add the following configuration to your `vars.yml` file (adapt to your needs):
 
 ```yaml
-radarr_container_additional_volumes:
+radarr_container_additional_volumes_custom:
   - type: bind
     src: /path/to/blackhole
     dst: /downloads
