@@ -74,7 +74,7 @@ provisioner:
         # Bound to the loopback interface of the test container only. Nothing
         # is published to the machine running Molecule, so two scenarios can
         # run side by side without fighting over a port.
-        radarr_container_http_bind_port: "127.0.0.1:17878"
+        radarr_container_http_host_bind_port: "127.0.0.1:17878"
 
         radarr_container_http_port: 17878
 
