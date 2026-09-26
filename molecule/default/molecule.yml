@@ -67,7 +67,7 @@ provisioner:
         # Neither the role's default of Etc/UTC nor the test host's zone, so
         # that the timezone the container ends up in can only have come from
         # templates/env.j2.
-        radarr_timezone: Asia/Tokyo
+        radarr_environment_variables_tz: Asia/Tokyo
 
         radarr_container_labels_traefik_enabled: true
 
