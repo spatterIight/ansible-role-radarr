@@ -95,7 +95,9 @@ radarr_container_labels_additional_labels_auto: []
 radarr_container_labels_additional_labels_custom: []
 
 # A list of extra arguments to pass to the container (`docker create` command)
-radarr_container_extra_arguments: []
+radarr_container_extra_arguments: "{{ radarr_container_extra_arguments_auto + radarr_container_extra_arguments_custom }}"
+radarr_container_extra_arguments_auto: []
+radarr_container_extra_arguments_custom: []
 
 # List of systemd services that the Radarr systemd service depends on
 radarr_systemd_required_services_list: "{{ (radarr_systemd_required_services_list_default + radarr_systemd_required_services_list_auto + radarr_systemd_required_services_list_custom) | unique }}"
