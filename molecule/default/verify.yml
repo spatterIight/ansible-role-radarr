@@ -164,30 +164,23 @@
         # The bind mounts
         # ------------------------------------------------------------------
 
-        # `radarr_container_additional_volumes` has been declared but never rendered
-        # in other roles of this fleet. Reading the file back from inside the
+        # Reading the file back from inside the
         # container is the difference between the variable existing and it working.
-        - name: Read the additional volume from inside the Radarr container
+        - name: Read the marker through the additional volume
           ansible.builtin.command:
             cmd: >-
               docker exec radarr
-              cat {{ radarr_molecule_extra_volume_dst }}/marker.txt
+              cat {{ radarr_molecule_extra_volume_dst }}/{{ radarr_molecule_marker_filename }}
           register: radarr_extra_volume
           changed_when: false
-          failed_when: false
 
         - name: Assert the additional volume is mounted into the Radarr container
           ansible.builtin.assert:
             that:
               - radarr_extra_volume.rc == 0
               - radarr_extra_volume.stdout | trim == radarr_molecule_extra_volume_marker
-            fail_msg: >-
-              {{ radarr_molecule_extra_volume_dst }}/marker.txt does not hold
-              {{ radarr_molecule_extra_volume_marker }}, so radarr_container_additional_volumes
-              is declared but not rendered into the systemd unit
-            success_msg: >-
-              {{ radarr_molecule_extra_volume_src }} is mounted at
-              {{ radarr_molecule_extra_volume_dst }} inside the container
+            fail_msg: "The additional volume did not carry the marker into the container"
+            success_msg: "The additional volume carries the marker into the container"
 
         # ------------------------------------------------------------------
         # What `docker create` was actually told

@@ -40,7 +40,12 @@ provisioner:
         # being merely declared in defaults/main.yml.
         radarr_molecule_extra_volume_src: /radarr-molecule-extra
         radarr_molecule_extra_volume_dst: /molecule-extra
-        radarr_molecule_extra_volume_marker: radarr-molecule-additional-volume-marker
+        radarr_molecule_extra_volume_marker: only-a-real-bind-mount-can-read-this
+
+        # Files placed on the host under the paths the role bind-mounts. Radarr
+        # itself is asked to list them back, so a mount that docker accepted but
+        # the process cannot see does not pass.
+        radarr_molecule_marker_filename: radarr-molecule-marker.txt
 
         # Nothing about Radarr's own defaults can produce these. Radarr's
         # built-in port is 7878, it calls itself "Radarr" and it generates a
