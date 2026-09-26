@@ -35,8 +35,8 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
 			--cap-add=SETUID \
 			--read-only \
 			--network={{ radarr_container_network }} \
-			{% if radarr_container_http_bind_port %}
-			-p {{ radarr_container_http_bind_port }}:{{ radarr_container_http_port }} \
+			{% if radarr_container_http_host_bind_port %}
+			-p {{ radarr_container_http_host_bind_port }}:{{ radarr_container_http_port }} \
 			{% endif %}
 			--env-file={{ radarr_base_path }}/env \
 			--label-file={{ radarr_base_path }}/labels \
@@ -49,7 +49,10 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
 			{% for arg in radarr_container_extra_arguments %}
 			{{ arg }} \
 			{% endfor %}
-			{{ radarr_container_image }}
+			{{ radarr_container_image }} \
+			{% for arg in radarr_process_extra_arguments %}
+			{{ arg }} \
+			{% endfor %}
 
 {% for network in radarr_container_additional_networks %}
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} {{ radarr_identifier }}

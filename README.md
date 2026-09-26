@@ -21,11 +21,6 @@ Check [`defaults/main.yml`](defaults/main.yml) for the full list of supported op
 
 ## Limitations
 
-> [!WARNING]
-> A freshly installed Radarr has no authentication of its own (`AuthenticationMethod` is `None` in the `config.xml` it writes for itself), and this role does not add any. Radarr also serves its API key to unauthenticated callers on `/initialize.json`, and that key is enough to drive the whole API. Turn authentication on under *Settings -> General -> Security* in Radarr itself, or put a middleware in front of it through `radarr_container_labels_additional_labels`, before making an installation reachable from the internet.
-
-The API key lives in `config.xml` under `radarr_data_path` (`/radarr/data/config.xml` by default). Radarr creates that file itself, with mode `0644`; the directory around it is created by this role with mode `0750` and owned by `radarr_uid`:`radarr_gid`, so the key is not readable by other users on the host.
-
 This role configures Radarr with security in mind by doing the following:
 
 1. Running the container as a non-root user
