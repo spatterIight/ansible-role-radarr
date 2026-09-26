@@ -63,6 +63,11 @@
             file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
             name: radarr_defaults
 
+        # ------------------------------------------------------------------
+        # The negative control, started first so that it boots alongside the
+        # assertions below rather than after them
+        # ------------------------------------------------------------------
+
         - name: Inspect Radarr container
           ansible.builtin.command:
             cmd: docker container inspect radarr
@@ -72,11 +77,6 @@
         - name: Parse the Radarr container definition
           ansible.builtin.set_fact:
             radarr_container: "{{ (radarr_container_raw.stdout | from_json)[0] }}"
-
-        # ------------------------------------------------------------------
-        # The negative control, started first so that it boots alongside the
-        # assertions below rather than after them
-        # ------------------------------------------------------------------
 
         # The same image, with none of the role's configuration. Anything this one
         # can do unaided is worthless as evidence about the role, and it can do more
