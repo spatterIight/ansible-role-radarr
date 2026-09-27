@@ -162,7 +162,7 @@
             success_msg: "Radarr reports itself healthy"
 
         # ------------------------------------------------------------------
-        # The bind mounts
+        # What `docker create` was actually told
         # ------------------------------------------------------------------
 
         - name: Collect the mounts the role asked for
@@ -201,10 +201,6 @@
             fail_msg: "The additional volume did not carry the marker into the container"
             success_msg: "The additional volume carries the marker into the container"
 
-        # ------------------------------------------------------------------
-        # What `docker create` was actually told
-        # ------------------------------------------------------------------
-
         # The `docker create` line in templates/systemd/radarr.service.j2 has a
         # comment sitting in the middle of a backslash continuation, right in front
         # of the tmpfs that linuxserver.io's read-only mode needs. systemd drops
@@ -222,35 +218,6 @@
               {{ 'read-only' if radarr_container.HostConfig.ReadonlyRootfs else 'writable' }}
               and its tmpfs mounts are {{ radarr_container.HostConfig.Tmpfs | default({}) }}
             success_msg: "The container is read-only with an exec tmpfs at /run"
-
-        # Radarr keeps its port in the config.xml it maintains for itself under
-        # `radarr_data_path`, which this role does not template. Only the
-        # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
-        # a Radarr listening anywhere other than 7878 is the role's doing. The
-        # absence of 7878 matters as much as the presence of the configured port:
-        # were the override dropped, the published port and the Traefik label would
-        # still say 17878 while the process sat on 7878.
-        - name: Read the ports Radarr listens on
-          ansible.builtin.command:
-            cmd: docker exec radarr netstat -lnt
-          register: radarr_listening_raw
-          changed_when: false
-
-        - name: Make sense of the ports Radarr listens on
-          ansible.builtin.set_fact:
-            radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
-
-        - name: Assert Radarr listens on the port the role configured and not on its own default
-          ansible.builtin.assert:
-            that:
-              - radarr_container_http_port | string in radarr_listening_ports
-              - "'7878' not in radarr_listening_ports"
-            fail_msg: >-
-              Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
-              17878, so radarr_container_http_port does not reach the process
-            success_msg: >-
-              Radarr listens on 17878 and not on its built-in 7878,
-              so radarr_container_http_port reaches the process
 
         - name: Assert that the role's uid and gid reached the container
           ansible.builtin.assert:
@@ -291,6 +258,35 @@
             that: radarr_container.Config.Labels['org.opencontainers.image.version'].startswith(radarr_defaults.radarr_version)
             fail_msg: "Radarr reports {{ radarr_container.Config.Labels['org.opencontainers.image.version'] | default('none') }}, expected {{ radarr_defaults.radarr_version }}"
             success_msg: "Radarr reports {{ radarr_container.Config.Labels['org.opencontainers.image.version'] }}"
+
+        # Radarr keeps its port in the config.xml it maintains for itself under
+        # `radarr_data_path`, which this role does not template. Only the
+        # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
+        # a Radarr listening anywhere other than 7878 is the role's doing. The
+        # absence of 7878 matters as much as the presence of the configured port:
+        # were the override dropped, the published port and the Traefik label would
+        # still say 17878 while the process sat on 7878.
+        - name: Read the ports Radarr listens on
+          ansible.builtin.command:
+            cmd: docker exec radarr netstat -lnt
+          register: radarr_listening_raw
+          changed_when: false
+
+        - name: Make sense of the ports Radarr listens on
+          ansible.builtin.set_fact:
+            radarr_listening_ports: "{{ radarr_listening_raw.stdout | regex_findall(':([0-9]+)\\s') | unique }}"
+
+        - name: Assert Radarr listens on the port the role configured and not on its own default
+          ansible.builtin.assert:
+            that:
+              - radarr_container_http_port | string in radarr_listening_ports
+              - "'7878' not in radarr_listening_ports"
+            fail_msg: >-
+              Radarr listens on {{ radarr_listening_ports | join(', ') }}, not on the configured
+              17878, so radarr_container_http_port does not reach the process
+            success_msg: >-
+              Radarr listens on 17878 and not on its built-in 7878,
+              so radarr_container_http_port reaches the process
 
         # ------------------------------------------------------------------
         # Traefik labels
