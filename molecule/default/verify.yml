@@ -205,6 +205,24 @@
         # What `docker create` was actually told
         # ------------------------------------------------------------------
 
+        # The `docker create` line in templates/systemd/radarr.service.j2 has a
+        # comment sitting in the middle of a backslash continuation, right in front
+        # of the tmpfs that linuxserver.io's read-only mode needs. systemd drops
+        # such a comment rather than passing it on to docker, but that is worth
+        # holding onto: if it ever stopped doing so, everything after the comment
+        # would silently become part of the image name.
+        - name: Assert that the read-only container still gets its writable /run
+          ansible.builtin.assert:
+            that:
+              - radarr_container.HostConfig.ReadonlyRootfs
+              - "'/run' in (radarr_container.HostConfig.Tmpfs | default({}))"
+              - "'exec' in radarr_container.HostConfig.Tmpfs['/run']"
+            fail_msg: >-
+              The container's root filesystem is
+              {{ 'read-only' if radarr_container.HostConfig.ReadonlyRootfs else 'writable' }}
+              and its tmpfs mounts are {{ radarr_container.HostConfig.Tmpfs | default({}) }}
+            success_msg: "The container is read-only with an exec tmpfs at /run"
+
         # Radarr keeps its port in the config.xml it maintains for itself under
         # `radarr_data_path`, which this role does not template. Only the
         # `RADARR__SERVER__PORT` the role renders into the env file can move it, so
