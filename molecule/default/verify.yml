@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
+# SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -163,6 +164,24 @@
         # ------------------------------------------------------------------
         # The bind mounts
         # ------------------------------------------------------------------
+
+        - name: Collect the mounts the role asked for
+          ansible.builtin.set_fact:
+            radarr_extra_mount: "{{ radarr_container.Mounts | selectattr('Destination', 'equalto', radarr_molecule_extra_volume_dst) | list }}"
+
+        # radarr_container_additional_volumes has been inert in several roles in
+        # this collection - rendered into a comment, or into a `-v` that silently
+        # dropped the options. Both the destination and the readonly option have
+        # to arrive.
+        - name: Assert that radarr_container_additional_volumes reached the container
+          ansible.builtin.assert:
+            that:
+              - radarr_extra_mount | length == 1
+              - radarr_extra_mount[0].Type == 'bind'
+              - radarr_extra_mount[0].Source == radarr_molecule_extra_volume_src
+              - not radarr_extra_mount[0].RW
+            fail_msg: "The additional volume did not reach the container: {{ radarr_container.Mounts }}"
+            success_msg: "The additional volume is mounted read-only at {{ radarr_molecule_extra_volume_dst }}"
 
         # Reading the file back from inside the
         # container is the difference between the variable existing and it working.
