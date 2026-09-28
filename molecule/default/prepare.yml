@@ -20,15 +20,24 @@
         name:
           # Used by the `ansible.builtin.uri` calls in verify.yml
           - python3-requests
-          # The storage driver the inner Docker daemon is configured with below.
-          # `overlay2` cannot be nested inside the container Molecule runs these
-          # tests in, and `vfs` (the usual fallback) has no copy-on-write, so it
-          # writes out every layer of the image in full.
+          # The storage driver below. Docker in a container cannot use the
+          # host's overlayfs, and fuse-overlayfs is several times faster than
+          # falling back to vfs.
           - fuse-overlayfs
         state: present
 
+    - name: Ensure Docker is installed for Radarr Molecule tests preparation
+      ansible.builtin.include_role:
+        name: ansible-role-docker
+      vars:
+        docker_daemon_options:
+          # `vfs` makes a full copy of every layer. The Radarr image is large
+          # enough for that to dominate the run - `fuse-overlayfs` gives the same
+          # nested-container isolation without the copying.
+          storage-driver: fuse-overlayfs
+
     # Bind-mounted into the Radarr container through
-    # `radarr_container_additional_volumes`. The role does not create the source
+    # `radarr_container_additional_volumes_custom`. The role does not create the source
     # of an additional volume, so it has to exist before the container is
     # created, or `docker create` refuses the bind. verify.yml reads the marker
     # file back from inside the container, which only works if the systemd unit
@@ -39,15 +48,8 @@
         state: directory
         mode: "0755"
 
-    - name: Ensure the additional volume marker file exists for Radarr Molecule tests
+    - name: Ensure a marker file exists in the Radarr Molecule additional volume
       ansible.builtin.copy:
         content: "{{ radarr_molecule_extra_volume_marker }}\n"
-        dest: "{{ radarr_molecule_extra_volume_src }}/marker.txt"
+        dest: "{{ radarr_molecule_extra_volume_src }}/{{ radarr_molecule_marker_filename }}"
         mode: "0644"
-
-    - name: Ensure Docker is installed for Radarr Molecule tests preparation
-      ansible.builtin.include_role:
-        name: ansible-role-docker
-      vars:
-        docker_daemon_options:
-          storage-driver: fuse-overlayfs

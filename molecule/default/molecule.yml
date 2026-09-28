@@ -34,13 +34,18 @@ provisioner:
         radarr_restarts_check_enabled: true
 
         # The host directory mounted into the container through
-        # `radarr_container_additional_volumes`, and the file placed in it by
+        # `radarr_container_additional_volumes_custom`, and the file placed in it by
         # prepare.yml. Reading that file from inside the container is what
         # proves the additional volumes reach the systemd unit rather than
         # being merely declared in defaults/main.yml.
         radarr_molecule_extra_volume_src: /radarr-molecule-extra
         radarr_molecule_extra_volume_dst: /molecule-extra
-        radarr_molecule_extra_volume_marker: radarr-molecule-additional-volume-marker
+        radarr_molecule_extra_volume_marker: only-a-real-bind-mount-can-read-this
+
+        # Files placed on the host under the paths the role bind-mounts. Radarr
+        # itself is asked to list them back, so a mount that docker accepted but
+        # the process cannot see does not pass.
+        radarr_molecule_marker_filename: radarr-molecule-marker.txt
 
         # Nothing about Radarr's own defaults can produce these. Radarr's
         # built-in port is 7878, it calls itself "Radarr" and it generates a
@@ -64,13 +69,6 @@ provisioner:
         # redirect middlewares in templates/labels.j2.
         radarr_path_prefix: /radarr-ui
 
-        # Neither the role's default of Etc/UTC nor the test host's zone, so
-        # that the timezone the container ends up in can only have come from
-        # templates/env.j2.
-        radarr_environment_variables_tz: Asia/Tokyo
-
-        radarr_container_labels_traefik_enabled: true
-
         # Bound to the loopback interface of the test container only. Nothing
         # is published to the machine running Molecule, so two scenarios can
         # run side by side without fighting over a port.
@@ -78,15 +76,22 @@ provisioner:
 
         radarr_container_http_port: 17878
 
-        radarr_environment_variables_additional_variables: |
-          RADARR__AUTH__APIKEY={{ radarr_molecule_api_key }}
-          RADARR__APP__INSTANCENAME={{ radarr_molecule_instance_name }}
-
-        radarr_container_additional_volumes:
+        radarr_container_additional_volumes_custom:
           - type: bind
             src: "{{ radarr_molecule_extra_volume_src }}"
             dst: "{{ radarr_molecule_extra_volume_dst }}"
             options: readonly
+
+        radarr_container_labels_traefik_enabled: true
+
+        # Neither the role's default of Etc/UTC nor the test host's zone, so
+        # that the timezone the container ends up in can only have come from
+        # templates/env.j2.
+        radarr_environment_variables_tz: Asia/Tokyo
+
+        radarr_environment_variables_additional_variables: |
+          RADARR__AUTH__APIKEY={{ radarr_molecule_api_key }}
+          RADARR__APP__INSTANCENAME={{ radarr_molecule_instance_name }}
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
