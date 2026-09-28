@@ -169,11 +169,11 @@
           ansible.builtin.set_fact:
             radarr_extra_mount: "{{ radarr_container.Mounts | selectattr('Destination', 'equalto', radarr_molecule_extra_volume_dst) | list }}"
 
-        # radarr_container_additional_volumes has been inert in several roles in
+        # radarr_container_additional_volumes_custom has been inert in several roles in
         # this collection - rendered into a comment, or into a `-v` that silently
         # dropped the options. Both the destination and the readonly option have
         # to arrive.
-        - name: Assert that radarr_container_additional_volumes reached the container
+        - name: Assert that radarr_container_additional_volumes_custom reached the container
           ansible.builtin.assert:
             that:
               - radarr_extra_mount | length == 1
